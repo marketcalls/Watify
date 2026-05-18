@@ -3,23 +3,23 @@
 This file is the single source of truth for "what runs next". Each loop iteration reads this, executes one chunk as the named agent, then updates this file.
 
 ```yaml
-phase: verification
-agent: verification_agent
-iteration: 34
-last_updated: 2026-05-18T17:41:34Z
-last_conversation: docs/.support/conversations/2026-05-18T174134Z-resolving_agent-iter34.md
+phase: ticketing
+agent: resolving_agent
+iteration: 37
+last_updated: 2026-05-18T17:51:26Z
+last_conversation: docs/.support/conversations/2026-05-18T175126Z-verification_agent-iter37.md
 servers:
   backend_running: true
-  backend_pid: 25860
+  backend_pid: 49412
   backend_url: http://localhost:8000
   frontend_running: true
   frontend_pid: 42204
   frontend_url: http://localhost:3000
 tickets:
-  open: 9
+  open: 10
   inprogress: 0
-  resolved: 2
-  verified: 7
+  resolved: 0
+  verified: 10
 ticket_index:
   TKT-0001: verified P2 backend Flat error envelope
   TKT-0002: verified P1 frontend UX polish
@@ -28,30 +28,28 @@ ticket_index:
   TKT-0005: open P2 backend Surface owner_phone after wars pairing
   TKT-0006: open P3 backend Move test phone constant out of smoke_db.py
   TKT-0007: verified P2 frontend /connect auto-pair guard
-  TKT-0008: open P2 frontend Global toaster for transient errors / success
+  TKT-0008: open P2 frontend Global toaster
   TKT-0009: verified P2 backend Cascade-delete groups
   TKT-0010: verified P1 frontend QR pair UX countdown + dim on expiry
-  TKT-0011: open P1 backend Encrypt wars session at rest
-  TKT-0012: open P2 backend RUST_LOG defaults silence wars noise
-  TKT-0013: open P2 backend Lazy wars import + WarsNotInstalled sentinel
+  TKT-0011: verified P1 backend Encrypted session infrastructure
+  TKT-0012: open P2 backend RUST_LOG defaults
+  TKT-0013: open P2 backend Lazy wars import + WarsNotInstalled
   TKT-0014: open P2 backend Pair-code mode alongside QR
-  TKT-0015: open P2 backend Rate-limit middleware on send endpoints
+  TKT-0015: open P2 backend Rate-limit middleware on send
   TKT-0016: open P3 backend Pair state machine paired vs ready
   TKT-0017: open P3 backend JID helpers
-  TKT-0018: open P3 frontend SSE push of QR instead of polling
-  TKT-0019: resolved P2 backend Auto-cycle wars after 45s of no on_qr
-  TKT-0020: resolved P1 backend wars on_connected callback fallback via is_connected() poll
+  TKT-0018: open P3 frontend SSE push of QR
+  TKT-0019: verified P2 backend wars auto-cycle watchdog
+  TKT-0020: verified P1 backend wars on_connected fallback
+  TKT-0021: open P1 backend Wire encrypted wars session (0011b)
 ```
 
 ## Next Action
-**Verification Agent** verifies BOTH TKT-0019 and TKT-0020 in one restart pass:
-1. Kill backend (pid 25860), respawn. The persisted `whatsapp.db` from the user's iter33 pair survives.
-2. Within ~3 s of boot, watch `/api/wa/state.state` flip from `pairing` -> `ready` (TKT-0020 fallback kicked in via the post-connect `_check_connected()` call), with the log line `wars: is_connected()==True, state=ready (callback fallback)`.
-3. To smoke TKT-0019, disconnect wars then leave it in `pairing` without scanning for ~50 s. Expect log line `wars-watchdog: no QR for ...s (>45s), auto-cycling (count=1)` and the next QR to appear shortly after.
-4. On pass: status `verified` on both, commit `fix(TKT-0019,TKT-0020): wars auto-cycle + on_connected fallback`, push.
+Highest-priority open: **TKT-0021** (P1 backend) -- wire the TKT-0011 infrastructure into WaSingleton. Auto-migrate `whatsapp.db` -> encrypted blob, boot from `from_bytes`, persist on `on_connected`. The live paired session is in `whatsapp.db` today; the migration will move it into `app.db` on next backend start when the operator sets `WATIFY_SESSION_ENCRYPTION_KEY`.
 
-## History (iter32 -> iter34 catch-up since the iter33 PIPELINE write was interrupted)
-- 2026-05-18T17:29:25Z iter32 ticketing | 9 tickets filed from openalgo gap analysis + iter31 finding
-- 2026-05-18T17:35:56Z iter33 resolving | TKT-0019 watchdog code shipped (no backend restart, user was pairing live) | log: docs/.support/conversations/2026-05-18T173556Z-resolving_agent-iter33.md
-- 2026-05-18T17:39:00Z iter33+ ticketing | TKT-0020 filed (live diagnosis: pair worked + send worked, but state stuck at "pairing" because wars never fired on_connected)
-- 2026-05-18T17:41:34Z iter34 resolving_agent -> verification | TKT-0020 is_connected() fallback shipped in worker idle-tick + post-connect; py_compile clean; backend NOT restarted | log: docs/.support/conversations/2026-05-18T174134Z-resolving_agent-iter34.md
+Recommended for iter38: `agent: resolving_agent`, ticket **TKT-0021**.
+
+## History
+- (iter0..iter35 abbreviated -- see git history)
+- 2026-05-18T17:47:28Z iter36 resolving | TKT-0011 (0011a infra) shipped; TKT-0021 filed
+- 2026-05-18T17:51:26Z iter37 verification_agent -> ticketing | TKT-0011 VERIFIED + committed: smoke 6/6, 8 symbols importable, wa_session table created, .env.example documented, live wars still ready | log: docs/.support/conversations/2026-05-18T175126Z-verification_agent-iter37.md

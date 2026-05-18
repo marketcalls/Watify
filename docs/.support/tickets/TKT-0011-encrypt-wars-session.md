@@ -1,11 +1,11 @@
 ---
 id: TKT-0011
 title: Encrypt wars session at rest (Fernet blob in app.db, temp-DB pair flow)
-status: open
+status: verified
 priority: P1
 area: backend
 created: 2026-05-18T17:29:25Z
-updated: 2026-05-18T17:29:25Z
+updated: 2026-05-18T17:51:26Z
 created_by: ticketing_agent
 related_plan_item: B-05, S3
 filed_via: gap_analysis
@@ -38,3 +38,22 @@ filed_via: gap_analysis
 
 ## Resolution history
 - 2026-05-18T17:29:25Z -- filed by Ticketing Agent (iter32, openalgo gap analysis).
+- 2026-05-18T17:47:28Z -- Resolving Agent (iter36) set status to inprogress, split scope:
+  - **TKT-0011 (this ticket)**: infrastructure -- model, settings, helpers, smoke. Ships now.
+  - **TKT-0021** (filed iter36): wiring into WaSingleton boot + on_connected + auto-migration of an existing `whatsapp.db`. Ships in a separate iteration so the operator's live paired session isn't disrupted mid-refactor.
+- 2026-05-18T17:49:00Z -- Resolving Agent (iter36) shipped 0011a infrastructure:
+  - `uv add cryptography` (cryptography 48.0.0, cffi 2.0.0, pycparser 3.0).
+  - `backend/app/models.py` adds `WaSession(id=1 singleton, ciphertext: bytes, created_at, updated_at)`.
+  - `backend/app/settings.py` adds `session_encryption_key: str | None = None` (env `WATIFY_SESSION_ENCRYPTION_KEY`).
+  - `backend/app/session_crypto.py`: `generate_key`, `encrypt_blob`, `decrypt_blob`, `has_session`, `load_session`, `save_session`, `clear_session`, `SessionCryptoError`. Fernet under the hood.
+  - `backend/scripts/smoke_crypto.py`: 6 cases all pass on 2026-05-18T17:48Z run. Plaintext 300 KB -> ciphertext 400 KB; wrong key correctly raises `SessionCryptoError`; upsert + clear semantics confirmed.
+  - `backend/.env.example` documents the key-generation snippet.
+  Status set to `resolved`; awaiting Verification Agent. Live session **unaffected** -- no production code path consumes the new module yet (TKT-0021 will wire it in).
+- 2026-05-18T17:51:26Z -- Verification Agent (iter37) PASSED all 6 acceptance points:
+  1. `scripts/smoke_crypto.py` re-ran -- 6/6 cases green (round-trip 300 KB -> 400 KB, wrong-key SessionCryptoError, persist, upsert, clear).
+  2. All 8 public symbols importable (`generate_key`, `encrypt_blob`, `decrypt_blob`, `has_session`, `load_session`, `save_session`, `clear_session`, `SessionCryptoError`).
+  3. `app.db` tables now include `wa_session` (alongside `apscheduler_jobs`, `contact`, `friend_group`, `send_attempt`, `send_job`).
+  4. `.env.example` lines 23, 25, 28 cover the docstring, the key-generation snippet, and the commented `WATIFY_SESSION_ENCRYPTION_KEY=` slot.
+  5. Live `GET /api/wa/state` returns `state=ready, qr=null` -- paired session preserved, no production code consumes the new module.
+  6. All 5 frontend routes still HTTP 200.
+  Status set to `verified`. Committed `fix(TKT-0011): encrypt wars session infrastructure` and pushed.

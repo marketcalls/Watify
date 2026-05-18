@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_file: str = str(_BACKEND_DIR.parent / "docs" / ".support" / "logs" / "backend.log")
 
+    # TKT-0011: when set, the WaSingleton stores the wars session as a
+    # Fernet-encrypted blob in `app.db` instead of plaintext on disk.
+    # Generate a key with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Leave unset for legacy file-backed mode (TKT-0011b will eventually
+    # auto-migrate any existing whatsapp.db once a key is provided).
+    session_encryption_key: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -84,3 +84,21 @@ class SendAttempt(SQLModel, table=True):
     error: str | None = Field(default=None, max_length=512)
 
     job: SendJob | None = Relationship(back_populates="attempts")
+
+
+class WaSession(SQLModel, table=True):
+    """Encrypted wars session storage (TKT-0011).
+
+    Singleton table: there is at most one row, with `id = 1`. The
+    `ciphertext` column holds a Fernet-encrypted `wars.WhatsApp.export_session()`
+    byte string. When this row exists AND `WATIFY_SESSION_KEY` is set,
+    the WaSingleton boots from this row via `WhatsApp.from_bytes(...)`
+    instead of touching `backend/whatsapp.db` on disk.
+    """
+
+    __tablename__ = "wa_session"
+
+    id: int | None = Field(default=1, primary_key=True)
+    ciphertext: bytes = Field(sa_column_kwargs={"nullable": False})
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
