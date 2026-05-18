@@ -55,3 +55,7 @@ target/
 docs/.support/logs/*.log
 docs/.support/logs/*.pid
 !docs/.support/logs/.gitkeep
+
+# Reference projects dropped under .support/ for the Ticketing Agent to
+# read but never to be committed into the Watify repo.
+docs/.support/openalgo/
