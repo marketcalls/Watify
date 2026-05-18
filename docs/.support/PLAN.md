@@ -97,8 +97,8 @@ Source: `REQUIREMENTS.md`. Items are dependency-ordered top to bottom. The Backe
 ## Infra / Cross-cutting (I-NN)
 
 - **[x] I-01** — `backend/.env.example` and `frontend/.env.local.example` checked in. *(verified iter16)*
-- **[ ] I-02** — Top-level `Makefile` or PowerShell scripts: `dev-backend`, `dev-frontend`, `pair` (one-shot wars pair CLI).
-- **[ ] I-03** — README updated with full local-run instructions once F-07 lands.
+- **[x] I-02** — Top-level `Makefile` and PowerShell scripts. *(done iter24 via TKT-0003)*
+- **[x] I-03** — README updated with full local-run instructions. *(done iter25 via TKT-0004)*
 - **[x] I-04** — `wars` install verified iter8: `uv add wars` pulled wars 0.1.3 + pillow + qrcode from PyPI; no maturin fallback needed.
 
 ## Done definition
