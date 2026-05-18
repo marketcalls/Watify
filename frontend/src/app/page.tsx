@@ -1,11 +1,16 @@
+import BackendStatus from "@/components/BackendStatus";
+
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-          WhatsApp notifications for your friend watchlists.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+            WhatsApp notifications for your friend watchlists.
+          </p>
+        </div>
+        <BackendStatus />
       </header>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

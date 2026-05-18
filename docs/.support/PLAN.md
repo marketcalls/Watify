@@ -63,10 +63,9 @@ Source: `REQUIREMENTS.md`. Items are dependency-ordered top to bottom. The Backe
   - Strip default landing page; add a top nav with links to Dashboard / Connect / Groups / Send / History.
   - Acceptance: `npm run dev` boots on :3000; nav renders; no console errors.
 
-- **[ ] F-02** — API client + state hooks.
-  - `src/lib/api.ts` typed `fetch` wrapper.
-  - `src/hooks/useGroups.ts`, `useWaState.ts`, `useJobs.ts` using SWR or React Query (pick lightweight — SWR).
-  - Acceptance: hooks compile, mock `/api/health` reachable from a tiny test page.
+- **[x] F-02** — API client + state hooks. *(done iter5)*
+  - Shipped: `src/lib/api.ts` typed fetch wrapper + `ApiError`, `src/hooks/useHealth.ts` (SWR 3s refresh), `src/components/BackendStatus.tsx`, Dashboard wires it.
+  - Deferred: `useGroups.ts` moved to F-04 (depends on B-03 `/api/groups`). `useWaState.ts` lands with F-03. `useJobs.ts` lands with F-06.
 
 - **[ ] F-03** — `/connect` page (WhatsApp pairing).
   - Polls `GET /api/wa/state` every 2s while `disconnected` or `pairing`.
