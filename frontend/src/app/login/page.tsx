@@ -46,7 +46,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await auth.login(u, password);
-      router.push("/");
+      router.push("/dashboard");
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.status === 401) setErr({ kind: "invalid" });

@@ -39,7 +39,7 @@ export default function RegisterPage() {
     setSubmitting(true);
     try {
       await auth.register(u, password);
-      router.push("/");
+      router.push("/dashboard");
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.status === 409) setErr({ kind: "closed" });

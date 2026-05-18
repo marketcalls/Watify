@@ -1,7 +1,10 @@
 import Link from "next/link";
 
+// TKT-0027 / TKT-0028: dashboard moved from `/` to `/dashboard` so `/`
+// can be the public hero. TopNav still hardwires links here; TKT-0028
+// will swap this for an auth-aware nav.
 const links = [
-  { href: "/", label: "Dashboard" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/connect", label: "Connect" },
   { href: "/groups", label: "Groups" },
   { href: "/send", label: "Send" },

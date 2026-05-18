@@ -1,80 +1,68 @@
-"use client";
+import Link from "next/link";
 
-import { useMemo } from "react";
-import BackendStatus from "@/components/BackendStatus";
-import SoftCapBanner from "@/components/SoftCapBanner";
-import WhatsAppTile from "@/components/WhatsAppTile";
-import { useGroups } from "@/hooks/useGroups";
-import { useJobs } from "@/hooks/useJobs";
+export const metadata = {
+  title: "Watify -- WhatsApp notifications for your friend watchlists",
+  description:
+    "Single-user WhatsApp notification service. Pair with QR, group your contacts, send on schedule with a random per-recipient delay.",
+};
 
-export default function DashboardPage() {
-  const { list: groups } = useGroups();
-  const { list: jobs } = useJobs();
-
-  const { stats, sent24h } = useMemo(() => {
-    const totalContacts = groups.reduce(
-      (s, g) => s + (g.contact_count ?? 0),
-      0
-    );
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const cutoff24h = Date.now() - 24 * 60 * 60 * 1000;
-
-    let jobsToday = 0;
-    let sent24hCount = 0;
-    for (const j of jobs) {
-      const created = new Date(j.created_at).getTime();
-      if (created >= startOfDay.getTime()) jobsToday++;
-      if (created >= cutoff24h) sent24hCount += j.counts?.sent ?? 0;
-    }
-    return {
-      sent24h: sent24hCount,
-      stats: [
-        { label: "Friend groups", value: String(groups.length) },
-        { label: "Contacts", value: String(totalContacts) },
-        { label: "Jobs today", value: String(jobsToday) },
-        { label: "Sent (24h)", value: String(sent24hCount) },
-      ],
-    };
-  }, [groups, jobs]);
-
+export default function HeroPage() {
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-            WhatsApp notifications for your friend watchlists.
-          </p>
-        </div>
-        <BackendStatus />
-      </header>
-
-      <SoftCapBanner sent24h={sent24h} />
-
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <WhatsAppTile />
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"
+    <div className="space-y-16">
+      <section className="pt-8 pb-4">
+        <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight leading-tight">
+          Send WhatsApp messages to your friend watchlists -- on your own terms.
+        </h1>
+        <p className="mt-5 max-w-2xl text-base sm:text-lg text-zinc-600 dark:text-zinc-400">
+          Watify is a single-user WhatsApp notification service you run on your own
+          host. Pair once with QR, group contacts into watchlists capped at 20, and
+          send right now or on a schedule with a random delay between each recipient.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href="/login"
+            className="rounded bg-zinc-900 dark:bg-zinc-100 text-zinc-50 dark:text-zinc-900 px-5 py-2.5 text-sm font-medium"
           >
-            <div className="text-xs uppercase tracking-wide text-zinc-500">
-              {s.label}
-            </div>
-            <div className="mt-1 text-lg font-medium">{s.value}</div>
-          </div>
-        ))}
+            Sign in
+          </Link>
+          <Link
+            href="/register"
+            className="rounded border border-zinc-300 dark:border-zinc-700 px-5 py-2.5 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          >
+            Get started
+          </Link>
+        </div>
       </section>
 
-      <section className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
-        <h2 className="text-base font-semibold">Getting started</h2>
-        <ol className="mt-3 list-decimal pl-5 text-sm space-y-1 text-zinc-700 dark:text-zinc-300">
-          <li>Open Connect and scan the QR with WhatsApp on your phone.</li>
-          <li>Create a friend group with up to 20 contacts.</li>
-          <li>Compose a message on Send and dispatch immediately or schedule it.</li>
-        </ol>
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <FeatureCard
+          title="Pair with QR or pair-code"
+          body="Scan the QR from your phone or use a pair-code -- one device, one host, file-backed session that survives restarts."
+        />
+        <FeatureCard
+          title="Friend groups, capped at 20"
+          body="Bulk-add contacts in groups of up to 20. Every send fires with a configurable random delay of 3 to 30 seconds between recipients to keep behaviour conversational."
+        />
+        <FeatureCard
+          title="Send now or schedule"
+          body="Compose once, dispatch immediately or schedule for later. One message at a time, full attempt history, per-recipient retry detail."
+        />
       </section>
+
+      <footer className="border-t border-zinc-200 dark:border-zinc-800 pt-6 text-xs text-zinc-500 dark:text-zinc-400">
+        Watify is single-user. Built on the unofficial wars library; see
+        <code className="mx-1 rounded bg-zinc-100 dark:bg-zinc-900 px-1 py-0.5">docs/wars.md</code>
+        for risk notes.
+      </footer>
+    </div>
+  );
+}
+
+function FeatureCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+      <h3 className="text-base font-semibold">{title}</h3>
+      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{body}</p>
     </div>
   );
 }
