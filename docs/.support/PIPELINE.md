@@ -5,12 +5,12 @@ This file is the single source of truth for "what runs next". Each loop iteratio
 ```yaml
 phase: ticketing
 agent: ticketing_agent
-iteration: 90
-last_updated: 2026-05-18T22:22:00Z
-last_conversation: docs/.support/conversations/2026-05-18T222122Z-verification_agent-iter90.md
+iteration: 93
+last_updated: 2026-05-18T22:38:00Z
+last_conversation: docs/.support/conversations/2026-05-18T223733Z-verification_agent-iter93.md
 servers:
   backend_running: true
-  backend_pid: 16032
+  backend_pid: 6736
   backend_url: http://localhost:8000
   frontend_running: true
   frontend_pid: 42204
@@ -19,7 +19,7 @@ tickets:
   open: 5
   inprogress: 0
   resolved: 0
-  verified: 30
+  verified: 31
 ticket_index:
   TKT-0014: verified P2 backend Pair-code mode (backend slice)
   TKT-0024: verified P1 backend Auth endpoints + JWT cookies + auth rate limits
@@ -32,6 +32,7 @@ ticket_index:
   TKT-0032: verified P2 backend CSRF defense (X-Requested-With + Origin check)
   TKT-0034: verified P1 frontend apiFetch credentials include
   TKT-0035: verified P3 frontend Pair-code frontend toggle + panel
+  TKT-0036: verified P0 frontend Toaster getServerSnapshot stable reference (hotfix)
   TKT-0027: open P2 frontend Public hero page; move dashboard to /dashboard
   TKT-0028: open P2 frontend Auth-aware TopNav
   TKT-0029: open P2 frontend Route guards
@@ -48,11 +49,7 @@ ticket_index:
 ```
 
 ## Next Action
-**Ticketing Agent** re-triages. Open queue is now 5 P3 polish:
-- P3 backend: TKT-0006 (move test phone constant out of smoke_db.py), TKT-0016 (distinguish `paired` vs `ready` in wa state machine), TKT-0017 (JID helpers)
-- P3 frontend: TKT-0018 (SSE push of QR instead of polling), TKT-0022 (job drawer cache drift)
-
-Suggested next Resolving target by smallest-scope: **TKT-0006** (test phone constant cleanup, 1 file). Ticketing should also run a brief security spot pass over the iter89 diff (package.json + package-lock + login/page Suspense wrap).
+**Ticketing Agent** re-triages. TKT-0036 verified. Remaining open queue is 5 P3 polish (TKT-0006 + TKT-0016/17/18/22). Suggested next Resolving target: **TKT-0006** (still smallest scope; was preempted in iter92 by the hotfix). Ticketing should also run a brief security spot pass over the iter92 Toaster diff -- expectation: clean since the change is one constant + one return statement.
 
 ## History (latest only)
 - 2026-05-18T20:07:00Z iter63 verification_agent -> ticketing | TKT-0026 VERIFIED + committed c9835a8: eight proofs -- file presence (4 files), exports (`auth`/`AuthAck`/`MeResponse`), useAuth 401-as-null + shouldRetryOnError=false, zero non-ASCII chars (no emojis/icons), tsc --noEmit exit 0, curl /login + /register HTTP 200 with expected copy strings, Next.js compiled src_app_login_page_tsx_05e8nkp._.js chunk, backend endpoints behave per UI contract (auth/me 401, register 409 registration_closed, login bad-password 401 invalid_credentials) | log: docs/.support/conversations/2026-05-18T200607Z-verification_agent-iter63.md
@@ -82,4 +79,7 @@ Suggested next Resolving target by smallest-scope: **TKT-0006** (test phone cons
 - 2026-05-18T22:08:00Z iter87 verification_agent -> ticketing | TKT-0035 VERIFIED + committed b1ccc59: eight proofs -- WaState.pair_code at api.ts:113, wa.connect(phone?) at :123, useWaState.connect(phone?) at :28, PairCodePanel.tsx 1970b with aria-label+formatChunks+Waiting fallback, connect/page.tsx imports PairCodePanel and uses ModeSwitch+PairCodeStarter+PairCodePanel + Mode type + handlers, tsc exit 0, zero non-ASCII across 4 files, curl /connect 200 + all 4 expected copy strings found in merged chunk _049tu0h._.js (59308 bytes); pair-code feature now end-to-end | log: docs/.support/conversations/2026-05-18T220705Z-verification_agent-iter87.md
 - 2026-05-18T22:11:52Z iter88 ticketing_agent -> resolving | iter86 diff security spot pass clean (no dangerouslySetInnerHTML/eval/localStorage/document.cookie/hex/console.log; sessionStorage hits are pre-existing AUTO_FLAG); no new tickets; queued TKT-0033 (postcss XSS advisory) with surgical fix: package.json overrides block pinning postcss:^8.5.10 + smoke production build, NO `npm audit fix --force` (would downgrade Next.js) | log: docs/.support/conversations/2026-05-18T221152Z-ticketing_agent-iter88.md
 - 2026-05-18T22:18:00Z iter89 resolving_agent -> verification | TKT-0033 RESOLVED: added "overrides":{"postcss":"^8.5.10"} to frontend/package.json; npm install bumped next's bundled postcss from 8.4.31 -> 8.5.14 (deduped with tailwind's existing 8.5.14); npm audit went from 2 moderate -> 0; production build (first attempt) failed on /login useSearchParams missing-Suspense static prerender requirement -- fixed inline by wrapping LoginPage default export in <Suspense fallback={null}><LoginForm/></Suspense> (latent bug from iter74 surfaced by the build smoke); npm run build now exit 0 with all 11 pages prerendered static; tsc exit 0; dev /login still 200 with copy intact | log: docs/.support/conversations/2026-05-18T221640Z-resolving_agent-iter89.md
-- 2026-05-18T22:22:00Z iter90 verification_agent -> ticketing | TKT-0033 VERIFIED + committed: six proofs reproduced -- overrides block at package.json:24-26, both postcss copies at 8.5.14 (overridden/deduped), npm audit total=0 across all severities, Suspense import + wrap + LoginForm at login/page.tsx:3/46/52, tsc exit 0, npm run build exit 0 with 9 routes prerendered Static | log: docs/.support/conversations/2026-05-18T222122Z-verification_agent-iter90.md
+- 2026-05-18T22:22:00Z iter90 verification_agent -> ticketing | TKT-0033 VERIFIED + committed d451e3e: six proofs reproduced -- overrides block at package.json:24-26, both postcss copies at 8.5.14 (overridden/deduped), npm audit total=0 across all severities, Suspense import + wrap + LoginForm at login/page.tsx:3/46/52, tsc exit 0, npm run build exit 0 with 9 routes prerendered Static | log: docs/.support/conversations/2026-05-18T222122Z-verification_agent-iter90.md
+- 2026-05-18T22:26:09Z iter91 ticketing_agent -> resolving | iter89 diff security spot pass clean over package.json + login/page.tsx (lockfile is regenerated manifest, skipped); no new tickets; queued TKT-0006 (move test phone constant out of smoke_db.py into a new backend/scripts/_fixtures.py for audit allowlisting) | log: docs/.support/conversations/2026-05-18T222609Z-ticketing_agent-iter91.md
+- 2026-05-18T22:34:00Z iter92 resolving_agent -> verification | started TKT-0006, then user reported P0 console error from Toaster (TKT-0008 regression: getServerSnapshot returning fresh [] literal each call -> React 19 "should be cached" infinite-loop warning at RootLayout:37); reverted TKT-0006 to open, filed + resolved TKT-0036 (hotfix): hoisted const EMPTY frozen-array module constant + getServerSnapshot returns EMPTY + toasts initial value reuses EMPTY; tsc exit 0; curl /dashboard 200; HMR picked up the fix. Side: admin user renamed to rajandran + password hash reset to operator's chosen string in app.db (no code change) | log: docs/.support/conversations/2026-05-18T223206Z-resolving_agent-iter92.md
+- 2026-05-18T22:38:00Z iter93 verification_agent -> ticketing | TKT-0036 VERIFIED + committed: 4 structural checks (EMPTY constant + toasts initial + getServerSnapshot return at lines 32/34/70, tsc exit 0, curl /+/dashboard+/login 200, production build still 9 routes Static); backend pid bumped to 6736 after operator-requested restart to wipe slowapi 429 counter | log: docs/.support/conversations/2026-05-18T223733Z-verification_agent-iter93.md

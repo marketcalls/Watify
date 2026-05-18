@@ -22,7 +22,16 @@ type Toast = {
 
 type Listener = () => void;
 
-let toasts: Toast[] = [];
+// TKT-0036: useSyncExternalStore expects getSnapshot/getServerSnapshot
+// to return the SAME reference between calls when nothing has changed.
+// Returning a fresh `[]` literal from getServerSnapshot would create a
+// new identity on every render and tip React into the
+// "result of getServerSnapshot should be cached" warning + a re-render
+// loop. EMPTY is a single frozen reference reused on every server-pass
+// call; the runtime store starts as the same empty array.
+const EMPTY: Toast[] = Object.freeze([]) as unknown as Toast[];
+
+let toasts: Toast[] = EMPTY;
 let nextId = 1;
 const listeners = new Set<Listener>();
 
@@ -59,7 +68,7 @@ function getSnapshot(): Toast[] {
 }
 
 function getServerSnapshot(): Toast[] {
-  return [];
+  return EMPTY;
 }
 
 export const toast = {
