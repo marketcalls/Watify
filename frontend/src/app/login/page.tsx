@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { mutate } from "swr";
 import { ApiError, auth } from "@/lib/api";
 
 // TKT-0029: honor the `?next=` query param post-login, but only when
@@ -72,6 +73,11 @@ function LoginForm() {
     setSubmitting(true);
     try {
       await auth.login(u, password);
+      // TKT-0045: invalidate the /api/auth/me cache BEFORE navigating
+      // so RequireAuth on the destination page sees the fresh user
+      // (not the stale `null` cached from the unauthed visit) and
+      // does not bounce back to /login.
+      await mutate("/api/auth/me");
       router.push(safeNextPath(searchParams.get("next")));
     } catch (e) {
       if (e instanceof ApiError) {

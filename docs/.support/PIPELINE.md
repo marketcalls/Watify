@@ -3,23 +3,23 @@
 This file is the single source of truth for "what runs next". Each loop iteration reads this, executes one chunk as the named agent, then updates this file.
 
 ```yaml
-phase: verification
-agent: verification_agent
-iteration: 95
-last_updated: 2026-05-18T22:50:00Z
-last_conversation: docs/.support/conversations/2026-05-18T224829Z-resolving_agent-iter95.md
+phase: ticketing
+agent: ticketing_agent
+iteration: 98
+last_updated: 2026-05-18T23:04:00Z
+last_conversation: docs/.support/conversations/2026-05-18T230400Z-resolving_agent-iter98.md
 servers:
   backend_running: true
-  backend_pid: 6736
+  backend_pid: 11120
   backend_url: http://localhost:8000
   frontend_running: true
-  frontend_pid: 42204
+  frontend_pid: 4664
   frontend_url: http://localhost:3000
 tickets:
-  open: 9
+  open: 12
   inprogress: 0
-  resolved: 3
-  verified: 31
+  resolved: 0
+  verified: 35
 ticket_index:
   TKT-0014: verified P2 backend Pair-code mode (backend slice)
   TKT-0024: verified P1 backend Auth endpoints + JWT cookies + auth rate limits
@@ -33,13 +33,16 @@ ticket_index:
   TKT-0034: verified P1 frontend apiFetch credentials include
   TKT-0035: verified P3 frontend Pair-code frontend toggle + panel
   TKT-0036: verified P0 frontend Toaster getServerSnapshot stable reference (hotfix)
-  TKT-0037: resolved P3 frontend Indian placeholder names on /groups
-  TKT-0038: resolved P3 frontend Test connection button on /connect ReadyPanel
+  TKT-0037: verified P3 frontend Indian placeholder names on /groups
+  TKT-0038: verified P3 frontend Test connection button on /connect ReadyPanel
   TKT-0039: open P2 frontend Vitest unit tests (helpers + stores + hooks)
   TKT-0040: open P2 frontend Playwright e2e tests (auth + groups happy path)
   TKT-0041: open P3 frontend Biome lint + format
   TKT-0042: open P3 frontend ARIA labels and accessibility audit pass
   TKT-0043: open P3 frontend Dark/light theme toggle (explicit override)
+  TKT-0044: open P2 frontend Supabase-style dark theme overhaul (multi-iter)
+  TKT-0045: verified P0 frontend Login bounces because SWR cache stale (hotfix)
+  TKT-0046: open P2 frontend Hide Get started CTAs once registered
   TKT-0027: open P2 frontend Public hero page; move dashboard to /dashboard
   TKT-0028: open P2 frontend Auth-aware TopNav
   TKT-0029: open P2 frontend Route guards
@@ -56,24 +59,11 @@ ticket_index:
 ```
 
 ## Next Action
-**Verification Agent** picks **TKT-0006** + **TKT-0037** + **TKT-0038** (all resolved this iteration). Three quick check sets:
+**Ticketing Agent** re-triages after iter98's TKT-0045 hotfix. Two candidates for next Resolving target:
+- **TKT-0046** (P2, Hide Get started CTAs once registered) -- small, concrete, addresses an immediate operator complaint. ~1 iteration. Pick this first.
+- **TKT-0044 iter A** (Supabase theme tokens + shell) -- still queued; resumes after TKT-0046 verifies.
 
-**TKT-0006** (backend):
-- `backend/scripts/_fixtures.py` exists with `TEST_PHONE_E164` + `TEST_PHONE_E164_DIGITS` constants.
-- `backend/scripts/smoke_db.py:14` imports `TEST_PHONE_E164_DIGITS`; `:30` uses the constant, no inline `911234567890`.
-- `uv run python -m py_compile scripts/_fixtures.py scripts/smoke_db.py` clean.
-- `uv run python scripts/smoke_db.py` exit 0.
-
-**TKT-0037** (frontend):
-- `frontend/src/app/groups/page.tsx:229` placeholder = `Priya`.
-- `frontend/src/components/groups/BulkAddModal.tsx:106` placeholder uses `Priya` + `Arjun`.
-- No `Alice` / `Bob` remaining in `frontend/src/**/*.tsx`.
-
-**TKT-0038** (frontend):
-- `frontend/src/lib/api.ts` exports `WaSendResult` type and `wa.testSelf(text)`.
-- `frontend/src/app/connect/page.tsx` ReadyPanel renders the green "Test connection" button that calls `wa.testSelf` and shows inline result + toast.
-
-Then `npx tsc --noEmit` exit 0; `curl /connect` 200; `curl /groups` 200. If all verified, commit each as a separate fix in sequence or as one bundled commit `fix(TKT-0006): test phone constant + TKT-0037 + TKT-0038` (operator-friendly squash since the diffs are independent and small). Push.
+Suggested order: TKT-0046 -> TKT-0044 iter A -> TKT-0044 iter B (hero copy) -> TKT-0044 iter C (TopNav + dashboard cards) -> TKT-0043 (theme toggle) -> TKT-0039 (Vitest) -> TKT-0040 (Playwright) -> TKT-0041 (Biome) -> TKT-0042 (ARIA audit).
 
 ## History (latest only)
 - 2026-05-18T20:07:00Z iter63 verification_agent -> ticketing | TKT-0026 VERIFIED + committed c9835a8: eight proofs -- file presence (4 files), exports (`auth`/`AuthAck`/`MeResponse`), useAuth 401-as-null + shouldRetryOnError=false, zero non-ASCII chars (no emojis/icons), tsc --noEmit exit 0, curl /login + /register HTTP 200 with expected copy strings, Next.js compiled src_app_login_page_tsx_05e8nkp._.js chunk, backend endpoints behave per UI contract (auth/me 401, register 409 registration_closed, login bad-password 401 invalid_credentials) | log: docs/.support/conversations/2026-05-18T200607Z-verification_agent-iter63.md
@@ -108,4 +98,7 @@ Then `npx tsc --noEmit` exit 0; `curl /connect` 200; `curl /groups` 200. If all 
 - 2026-05-18T22:34:00Z iter92 resolving_agent -> verification | started TKT-0006, then user reported P0 console error from Toaster (TKT-0008 regression: getServerSnapshot returning fresh [] literal each call -> React 19 "should be cached" infinite-loop warning at RootLayout:37); reverted TKT-0006 to open, filed + resolved TKT-0036 (hotfix): hoisted const EMPTY frozen-array module constant + getServerSnapshot returns EMPTY + toasts initial value reuses EMPTY; tsc exit 0; curl /dashboard 200; HMR picked up the fix. Side: admin user renamed to rajandran + password hash reset to operator's chosen string in app.db (no code change) | log: docs/.support/conversations/2026-05-18T223206Z-resolving_agent-iter92.md
 - 2026-05-18T22:38:00Z iter93 verification_agent -> ticketing | TKT-0036 VERIFIED + committed 3a01fb8: 4 structural checks (EMPTY constant + toasts initial + getServerSnapshot return at lines 32/34/70, tsc exit 0, curl /+/dashboard+/login 200, production build still 9 routes Static); backend pid bumped to 6736 after operator-requested restart to wipe slowapi 429 counter | log: docs/.support/conversations/2026-05-18T223733Z-verification_agent-iter93.md
 - 2026-05-18T22:42:21Z iter94 ticketing_agent -> resolving | iter92 Toaster diff security spot pass clean (grep over the one-liner found nothing); no new tickets; re-queued TKT-0006 (test phone constant cleanup -- the same target that iter92 was preempted on); counts steady open=5 verified=31 | log: docs/.support/conversations/2026-05-18T224221Z-ticketing_agent-iter94.md
-- 2026-05-18T22:50:00Z iter95 resolving_agent -> verification | TKT-0006 RESOLVED: new backend/scripts/_fixtures.py with TEST_PHONE_E164 (+911234567890) + TEST_PHONE_E164_DIGITS; smoke_db.py imports and uses the digits form; py_compile + smoke run both clean. Also filed + resolved TKT-0037 (Indian placeholder names: Alice/Bob -> Priya/Arjun on /groups + bulk modal) and TKT-0038 (Test connection button on /connect ReadyPanel calling wa.testSelf with inline+toast feedback) to formalize earlier in-session operator-requested edits. Verification Agent will commit all three in next iter | log: docs/.support/conversations/2026-05-18T224829Z-resolving_agent-iter95.md
+- 2026-05-18T22:50:00Z iter95 resolving_agent -> verification | TKT-0006 RESOLVED: new backend/scripts/_fixtures.py with TEST_PHONE_E164 (+911234567890) + TEST_PHONE_E164_DIGITS; smoke_db.py imports and uses the digits form; py_compile + smoke run both clean. Also filed + resolved TKT-0037 (Indian placeholder names: Alice/Bob -> Priya/Arjun on /groups + bulk modal) and TKT-0038 (Test connection button on /connect ReadyPanel calling wa.testSelf with inline+toast feedback) to formalize earlier in-session operator-requested edits. Filed TKT-0039 (Vitest) + TKT-0040 (Playwright) + TKT-0041 (Biome) + TKT-0042 (ARIA audit) + TKT-0043 (theme toggle) per operator's testing/tooling request | log: docs/.support/conversations/2026-05-18T224829Z-resolving_agent-iter95.md
+- 2026-05-18T22:56:00Z iter96 verification_agent -> ticketing | TKT-0006 + TKT-0037 + TKT-0038 VERIFIED + bundle-committed ab5be6f: backend fixtures + smoke runs clean, no Alice/Bob anywhere in frontend, WaSendResult + wa.testSelf + ReadyPanel Test connection button all at expected lines, tsc exit 0, curl /connect+/groups 200; filed TKT-0044 (Supabase-style dark theme overhaul, multi-iter) after operator shared OpenAlgo hero screenshot | log: docs/.support/conversations/2026-05-18T225458Z-verification_agent-iter96.md
+- 2026-05-18T22:59:50Z iter97 ticketing_agent -> resolving | iter95 diff security spot pass clean over 6 changed files (sessionStorage hit is pre-existing AUTO_FLAG); no new tickets; queued TKT-0044 iter A (design tokens + global shell + hero grid overlay shell) with Supabase emerald palette as the picked variant; counts steady open=11 verified=34 | log: docs/.support/conversations/2026-05-18T225950Z-ticketing_agent-iter97.md
+- 2026-05-18T23:04:00Z iter98 resolving_agent (+ verification) -> ticketing | TKT-0045 P0 hotfix RESOLVED+VERIFIED (operator-requested bundled commit): added `await mutate("/api/auth/me")` BEFORE router.push in login + register pages so RequireAuth on the destination sees the fresh user instead of the stale SWR-cached null and stops bouncing back to /login. tsc exit 0. Diagnosis details in the ticket. Also filed TKT-0046 (P2) for the operator's second complaint: hide Get started CTAs once registered, via a new `/api/health.registered: bool` signal that hero + TopNav can read | log: docs/.support/conversations/2026-05-18T230400Z-resolving_agent-iter98.md

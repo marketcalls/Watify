@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { mutate } from "swr";
 import { ApiError, auth } from "@/lib/api";
 
 type ErrorState =
@@ -39,6 +40,9 @@ export default function RegisterPage() {
     setSubmitting(true);
     try {
       await auth.register(u, password);
+      // TKT-0045: invalidate /api/auth/me cache before navigating so
+      // RequireAuth on /dashboard sees the fresh user immediately.
+      await mutate("/api/auth/me");
       router.push("/dashboard");
     } catch (e) {
       if (e instanceof ApiError) {
