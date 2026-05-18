@@ -69,3 +69,19 @@ export type Health = {
   service: string;
   version: string;
 };
+
+export type WaPhase = "disconnected" | "pairing" | "ready" | "error";
+
+export type WaState = {
+  state: WaPhase;
+  qr_data_url: string | null;
+  owner_phone: string | null;
+  last_error: string | null;
+  last_event_at: string | null;
+};
+
+export const wa = {
+  state: () => api.get<WaState>("/api/wa/state"),
+  connect: () => api.post<WaState>("/api/wa/connect"),
+  disconnect: () => api.post<WaState>("/api/wa/disconnect"),
+};

@@ -1,6 +1,13 @@
 import BackendStatus from "@/components/BackendStatus";
+import WhatsAppTile from "@/components/WhatsAppTile";
 
 export default function DashboardPage() {
+  const stats = [
+    { label: "Friend groups", value: "0" },
+    { label: "Contacts", value: "0" },
+    { label: "Jobs today", value: "0" },
+  ];
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -14,12 +21,8 @@ export default function DashboardPage() {
       </header>
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "WhatsApp", value: "Not connected" },
-          { label: "Friend groups", value: "0" },
-          { label: "Contacts", value: "0" },
-          { label: "Jobs today", value: "0" },
-        ].map((s) => (
+        <WhatsAppTile />
+        {stats.map((s) => (
           <div
             key={s.label}
             className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4"

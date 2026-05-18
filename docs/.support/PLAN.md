@@ -67,7 +67,7 @@ Source: `REQUIREMENTS.md`. Items are dependency-ordered top to bottom. The Backe
   - Shipped: `src/lib/api.ts` typed fetch wrapper + `ApiError`, `src/hooks/useHealth.ts` (SWR 3s refresh), `src/components/BackendStatus.tsx`, Dashboard wires it.
   - Deferred: `useGroups.ts` moved to F-04 (depends on B-03 `/api/groups`). `useWaState.ts` lands with F-03. `useJobs.ts` lands with F-06.
 
-- **[ ] F-03** — `/connect` page (WhatsApp pairing).
+- **[x] F-03** — `/connect` page (WhatsApp pairing). *(done iter9)*
   - Polls `GET /api/wa/state` every 2s while `disconnected` or `pairing`.
   - Shows QR `<img>` from `qr_data_url` once present.
   - When `ready`, shows owner number + Disconnect button.
