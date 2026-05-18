@@ -4,10 +4,10 @@ This file is the single source of truth for "what runs next". Each loop iteratio
 
 ```yaml
 phase: ticketing
-agent: resolving_agent     # advance straight to resolving on the next-priority open
-iteration: 20
-last_updated: 2026-05-18T16:34:11Z
-last_conversation: docs/.support/conversations/2026-05-18T163411Z-verification_agent-iter20.md
+agent: resolving_agent
+iteration: 22
+last_updated: 2026-05-18T16:43:40Z
+last_conversation: docs/.support/conversations/2026-05-18T164340Z-verification_agent-iter22.md
 servers:
   backend_running: true
   backend_pid: 35788
@@ -16,10 +16,10 @@ servers:
   frontend_pid: 42204
   frontend_url: http://localhost:3000
 tickets:
-  open: 6
+  open: 5
   inprogress: 0
   resolved: 0
-  verified: 2
+  verified: 3
 ticket_index:
   TKT-0001: open P2 backend Standardize API error response shape
   TKT-0002: verified P1 frontend UX polish
@@ -27,21 +27,20 @@ ticket_index:
   TKT-0004: open P2 infra Expand README with local-run instructions (I-03)
   TKT-0005: open P2 backend Surface owner_phone after wars pairing
   TKT-0006: open P3 backend Move test phone constant out of smoke_db.py
-  TKT-0007: open P2 frontend /connect re-triggers POST /api/wa/connect on every hot-reload
+  TKT-0007: verified P2 frontend /connect auto-pair guard
   TKT-0008: open P2 frontend Global toaster for transient errors / success
-  TKT-0009: verified P2 backend Cascade-delete groups (issue A committed; issue B deferred to TKT-0004 README)
+  TKT-0009: verified P2 backend Cascade-delete groups
 ```
 
 ## Next Action
-6 open tickets remain (all P2 or P3). Suggested order for the Resolving Agent:
-1. **TKT-0007** (P2 frontend) — small, isolated `useRef` guard fix. Will leave dev cycles cleaner immediately.
-2. **TKT-0001** (P2 backend) — flatten the 422/409 error envelope. Touches both backend (HTTPException handler) and frontend `ApiError.body` consumers; bigger blast radius. Defer until after TKT-0007.
-3. **TKT-0003** + **TKT-0004** (P2 infra) — dev scripts + README. Both small, can land in one iteration.
-4. **TKT-0005** (P2 backend) — owner_phone exposure. Needs wars API exploration; can split if it grows.
-5. **TKT-0008** (P2 frontend) — global toaster.
-6. **TKT-0006** (P3 backend) — smoke_db test phone — last because it's cosmetic.
+5 open tickets. All P2 or P3. Suggested order:
+1. **TKT-0003 + TKT-0004** (infra: dev scripts + README). Can land together in one iteration since both are pure docs/scripts and they cross-reference.
+2. **TKT-0001** (backend error envelope) — touches handler + frontend ApiError parsing.
+3. **TKT-0008** (frontend Toaster) — needs a small portal component + a hook.
+4. **TKT-0005** (backend owner_phone) — wars API exploration.
+5. **TKT-0006** (P3 backend smoke_db phone) — last, cosmetic.
 
-Recommended for iter21: `agent: resolving_agent`, ticket **TKT-0007**.
+Recommended for iter23: `agent: resolving_agent`, ticket **TKT-0003** (dev scripts) — small, unblocks easier local startup.
 
 ## History
 - 2026-05-18T00:00:00Z iter0 bootstrap | initial scaffold
@@ -63,5 +62,7 @@ Recommended for iter21: `agent: resolving_agent`, ticket **TKT-0007**.
 - 2026-05-18T16:14:48Z iter16 ticketing | 7 tickets filed
 - 2026-05-18T16:19:59Z iter17 resolving | TKT-0002 partial; TKT-0008 split
 - 2026-05-18T16:24:52Z iter18 verification | TKT-0002 VERIFIED + committed; TKT-0009 filed
-- 2026-05-18T16:29:33Z iter19 resolving | TKT-0009 resolved (cascade + APScheduler scrub)
-- 2026-05-18T16:34:11Z iter20 verification_agent -> ticketing | TKT-0009 VERIFIED + committed: 2 independent cascade smokes (terminal-job + future-scheduled-job) both 204; 6 open tickets remain | log: docs/.support/conversations/2026-05-18T163411Z-verification_agent-iter20.md
+- 2026-05-18T16:29:33Z iter19 resolving | TKT-0009 resolved
+- 2026-05-18T16:34:11Z iter20 verification | TKT-0009 VERIFIED + committed
+- 2026-05-18T16:39:01Z iter21 resolving | TKT-0007 resolved (triple guard)
+- 2026-05-18T16:43:40Z iter22 verification_agent -> ticketing | TKT-0007 VERIFIED + committed: code review + compile + 5x curl storm pass; 5 open tickets remain | log: docs/.support/conversations/2026-05-18T164340Z-verification_agent-iter22.md

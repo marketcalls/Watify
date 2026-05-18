@@ -1,24 +1,64 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useWaState } from "@/hooks/useWaState";
+
+const AUTO_FLAG = "watify.autopair.started";
 
 export default function ConnectPage() {
   const { waState, isLoading, connect, disconnect } = useWaState();
   const [busy, setBusy] = useState(false);
+  const autoStarted = useRef(false);
 
+  // Auto-pair once per mount / per session. Three layers of guard so dev
+  // hot-reloads do not stampede /api/wa/connect:
+  //   1. useRef survives within a single mount.
+  //   2. sessionStorage flag survives Fast Refresh remounts.
+  //   3. We only auto-start when state is "disconnected" -- if the wars
+  //      worker is already pairing or ready we never touch it.
   useEffect(() => {
     if (!waState) return;
-    if (waState.state === "disconnected" && !busy) {
-      setBusy(true);
-      connect()
-        .catch(() => {
-          // swallow; the state machine will surface last_error
-        })
-        .finally(() => setBusy(false));
+    if (autoStarted.current) return;
+    if (typeof window !== "undefined" && sessionStorage.getItem(AUTO_FLAG)) {
+      autoStarted.current = true;
+      return;
     }
+    if (waState.state !== "disconnected") {
+      // Already pairing/ready/error -- treat as if auto-pair fired.
+      autoStarted.current = true;
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(AUTO_FLAG, "1");
+      }
+      return;
+    }
+    autoStarted.current = true;
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(AUTO_FLAG, "1");
+    }
+    setBusy(true);
+    connect()
+      .catch(() => {
+        // swallow; the state machine will surface last_error
+      })
+      .finally(() => setBusy(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waState?.state]);
+
+  async function handleDisconnect() {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(AUTO_FLAG);
+    }
+    autoStarted.current = false;
+    await disconnect();
+  }
+
+  async function handleManualConnect() {
+    autoStarted.current = true;
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(AUTO_FLAG, "1");
+    }
+    await connect();
+  }
 
   return (
     <div className="space-y-6">
@@ -39,7 +79,7 @@ export default function ConnectPage() {
             <span>Not connected yet.</span>
             <button
               type="button"
-              onClick={() => connect()}
+              onClick={() => handleManualConnect()}
               className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
             >
               Start pairing
@@ -55,14 +95,14 @@ export default function ConnectPage() {
       {waState?.state === "ready" ? (
         <ReadyPanel
           ownerPhone={waState.owner_phone}
-          onDisconnect={() => disconnect()}
+          onDisconnect={() => handleDisconnect()}
         />
       ) : null}
 
       {waState?.state === "error" ? (
         <ErrorPanel
           message={waState.last_error}
-          onRetry={() => connect()}
+          onRetry={() => handleManualConnect()}
         />
       ) : null}
     </div>
