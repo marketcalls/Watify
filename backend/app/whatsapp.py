@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,6 +34,13 @@ log = logging.getLogger(__name__)
 State = Literal["disconnected", "pairing", "ready", "error"]
 
 DB_PATH = Path(settings.whatsapp_db).resolve()
+
+# Auto-cycle settings. wars's pairing window is ~5 minutes; if `on_qr`
+# stops firing for more than QR_STALE_THRESHOLD_S the watchdog cycles
+# the worker so the user is not left staring at a permanently expired
+# QR. See TKT-0019.
+QR_STALE_THRESHOLD_S = 45
+WATCHDOG_INTERVAL_S = 5
 
 
 @dataclass
@@ -52,6 +60,13 @@ class WaSingleton:
     _worker: Optional[threading.Thread] = None
     _worker_lock = threading.Lock()
     _ready_event = threading.Event()
+
+    # Watchdog state (TKT-0019). Updated by _on_qr only -- distinct from
+    # the general `last_event_at` which moves on every state change.
+    _last_qr_at: Optional[datetime] = None
+    _cycling: bool = False
+    _auto_cycle_count: int = 0
+    _watchdog: Optional[threading.Thread] = None
 
     # --- state helpers ---
 
@@ -98,13 +113,54 @@ class WaSingleton:
     @classmethod
     def _ensure_worker(cls) -> None:
         with cls._worker_lock:
-            if cls._worker is not None and cls._worker.is_alive():
-                return
-            cls._ready_event.clear()
-            cls._worker = threading.Thread(
-                target=cls._worker_loop, name="wars-worker", daemon=True
+            if cls._worker is None or not cls._worker.is_alive():
+                cls._ready_event.clear()
+                cls._worker = threading.Thread(
+                    target=cls._worker_loop, name="wars-worker", daemon=True
+                )
+                cls._worker.start()
+            if cls._watchdog is None or not cls._watchdog.is_alive():
+                cls._watchdog = threading.Thread(
+                    target=cls._watchdog_loop,
+                    name="wars-watchdog",
+                    daemon=True,
+                )
+                cls._watchdog.start()
+
+    @classmethod
+    def _watchdog_loop(cls) -> None:
+        """TKT-0019. Polls state every WATCHDOG_INTERVAL_S. If we're
+        sitting in `pairing` with no fresh `on_qr` for longer than
+        QR_STALE_THRESHOLD_S, queue a `cycle` command on the worker to
+        re-handshake. Bumps `_auto_cycle_count` for diagnostics.
+        """
+        log.info(
+            "wars-watchdog started (threshold=%ss interval=%ss)",
+            QR_STALE_THRESHOLD_S,
+            WATCHDOG_INTERVAL_S,
+        )
+        while True:
+            time.sleep(WATCHDOG_INTERVAL_S)
+            snap = cls.snapshot()
+            if snap.state != "pairing":
+                continue
+            if cls._cycling:
+                continue
+            with cls._state_lock:
+                last_qr = cls._last_qr_at
+            if last_qr is None:
+                continue
+            age = (datetime.now(timezone.utc) - last_qr).total_seconds()
+            if age <= QR_STALE_THRESHOLD_S:
+                continue
+            cls._auto_cycle_count += 1
+            log.warning(
+                "wars-watchdog: no QR for %.0fs (>%ss), auto-cycling (count=%s)",
+                age,
+                QR_STALE_THRESHOLD_S,
+                cls._auto_cycle_count,
             )
-            cls._worker.start()
+            cls._cmd_q.put(("cycle", None))
 
     @classmethod
     def _worker_loop(cls) -> None:
@@ -118,6 +174,8 @@ class WaSingleton:
                 except Exception as e:  # noqa: BLE001
                     log.warning("qr_to_data_url failed: %s", e)
                     durl = None
+                with cls._state_lock:
+                    cls._last_qr_at = datetime.now(timezone.utc)
                 cls._set(state="pairing", qr_data_url=durl)
                 log.info(
                     "wars on_qr: state=pairing qr_len=%s",
@@ -131,6 +189,13 @@ class WaSingleton:
 
             @wa.on_disconnect
             def _on_disconnect() -> None:
+                # During a worker-initiated cycle (TKT-0019 watchdog),
+                # wars fires on_disconnect mid-cycle. Don't flip the UI
+                # to "disconnected" -- the immediate reconnect will take
+                # us back through on_qr.
+                if cls._cycling:
+                    log.info("wars on_disconnect: suppressed during auto-cycle")
+                    return
                 cls._set(state="disconnected", clear_qr=True)
                 log.info("wars on_disconnect: state=disconnected")
         except Exception as e:  # noqa: BLE001
@@ -141,9 +206,28 @@ class WaSingleton:
         cls._ready_event.set()
         log.info("wars-worker ready, waiting for commands")
 
+        def _check_connected() -> None:
+            """TKT-0020: wars 0.1.3 does not always fire `on_connected`
+            after a successful re-handshake from a persisted session, so
+            our state can stay at "pairing" forever even though
+            `wa.send` works. Poll `wa.is_connected()` between commands
+            and flip state to "ready" when it returns True. Idempotent
+            -- safe to call repeatedly."""
+            try:
+                if cls.snapshot().state == "pairing" and wa.is_connected():
+                    cls._set(state="ready", clear_qr=True, clear_error=True)
+                    log.info(
+                        "wars: is_connected()==True, state=ready (callback fallback)"
+                    )
+            except Exception:  # noqa: BLE001
+                pass
+
         while True:
             try:
-                cmd, arg = cls._cmd_q.get()
+                cmd, arg = cls._cmd_q.get(timeout=2.0)
+            except queue.Empty:
+                _check_connected()
+                continue
             except Exception:  # noqa: BLE001
                 continue
             if cmd == "stop":
@@ -156,9 +240,25 @@ class WaSingleton:
             try:
                 if cmd == "connect":
                     wa.connect()
+                    _check_connected()
                 elif cmd == "disconnect":
                     wa.disconnect()
                     cls._set(state="disconnected", clear_qr=True)
+                elif cmd == "cycle":
+                    # TKT-0019: watchdog-triggered fresh-QR refresh.
+                    cls._cycling = True
+                    try:
+                        try:
+                            wa.disconnect()
+                        except Exception:  # noqa: BLE001
+                            pass
+                        # Brief settle so wars's internal Tokio runtime
+                        # releases the previous noise session before we
+                        # ask for a new one.
+                        time.sleep(0.2)
+                        wa.connect()
+                    finally:
+                        cls._cycling = False
                 elif cmd == "send_self":
                     wa.send(arg)
                 elif cmd == "send_to":
