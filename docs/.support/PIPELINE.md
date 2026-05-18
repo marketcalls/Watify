@@ -5,9 +5,9 @@ This file is the single source of truth for "what runs next". Each loop iteratio
 ```yaml
 phase: ticketing
 agent: ticketing_agent
-iteration: 87
-last_updated: 2026-05-18T22:08:00Z
-last_conversation: docs/.support/conversations/2026-05-18T220705Z-verification_agent-iter87.md
+iteration: 90
+last_updated: 2026-05-18T22:22:00Z
+last_conversation: docs/.support/conversations/2026-05-18T222122Z-verification_agent-iter90.md
 servers:
   backend_running: true
   backend_pid: 16032
@@ -16,10 +16,10 @@ servers:
   frontend_pid: 42204
   frontend_url: http://localhost:3000
 tickets:
-  open: 6
+  open: 5
   inprogress: 0
   resolved: 0
-  verified: 29
+  verified: 30
 ticket_index:
   TKT-0014: verified P2 backend Pair-code mode (backend slice)
   TKT-0024: verified P1 backend Auth endpoints + JWT cookies + auth rate limits
@@ -48,11 +48,11 @@ ticket_index:
 ```
 
 ## Next Action
-**Ticketing Agent** re-triages. Pair-code feature is now end-to-end (TKT-0014 backend + TKT-0035 frontend, both verified). Remaining open queue is six P3 polish:
+**Ticketing Agent** re-triages. Open queue is now 5 P3 polish:
 - P3 backend: TKT-0006 (move test phone constant out of smoke_db.py), TKT-0016 (distinguish `paired` vs `ready` in wa state machine), TKT-0017 (JID helpers)
-- P3 frontend: TKT-0018 (SSE push of QR instead of polling), TKT-0022 (job drawer cache drift), TKT-0033 (Next.js postcss XSS advisory tracking)
+- P3 frontend: TKT-0018 (SSE push of QR instead of polling), TKT-0022 (job drawer cache drift)
 
-Suggested next Resolving target: **TKT-0033** -- smallest scope (a `package.json` audit + a tracking note in REQUIREMENTS or a README), and is the only remaining "security-adjacent" item even though it's filed as P3. Alternative: TKT-0006 (test phone constant) is also a 1-file cleanup. Ticketing should also run a brief security spot pass over the iter86 diff (api.ts + useWaState + PairCodePanel + connect/page).
+Suggested next Resolving target by smallest-scope: **TKT-0006** (test phone constant cleanup, 1 file). Ticketing should also run a brief security spot pass over the iter89 diff (package.json + package-lock + login/page Suspense wrap).
 
 ## History (latest only)
 - 2026-05-18T20:07:00Z iter63 verification_agent -> ticketing | TKT-0026 VERIFIED + committed c9835a8: eight proofs -- file presence (4 files), exports (`auth`/`AuthAck`/`MeResponse`), useAuth 401-as-null + shouldRetryOnError=false, zero non-ASCII chars (no emojis/icons), tsc --noEmit exit 0, curl /login + /register HTTP 200 with expected copy strings, Next.js compiled src_app_login_page_tsx_05e8nkp._.js chunk, backend endpoints behave per UI contract (auth/me 401, register 409 registration_closed, login bad-password 401 invalid_credentials) | log: docs/.support/conversations/2026-05-18T200607Z-verification_agent-iter63.md
@@ -79,4 +79,7 @@ Suggested next Resolving target: **TKT-0033** -- smallest scope (a `package.json
 - 2026-05-18T21:50:00Z iter84 verification_agent -> ticketing | TKT-0014 VERIFIED + committed c5b3827: eight checks -- py_compile clean, pair_code in ClientState/_set/WaState DTO, @wa.on_pair_code hasattr-gated at whatsapp.py:421-423, WaSingleton.connect(phone) at :567, worker dispatch at :526-532 with isinstance(arg,str) and arg, router WaConnectRequest at :25 + handler at :73, _snapshot_to_dto carries pair_code at :60, 4 smokes pass (A 200 QR, B state keys include pair_code, C 200 phone-body, D 422 invalid_phone); all P1+P2 now verified | log: docs/.support/conversations/2026-05-18T214956Z-verification_agent-iter84.md
 - 2026-05-18T21:54:43Z iter85 ticketing_agent -> resolving | iter83 diff security pass clean (no dangerouslySetInnerHTML/eval/storage/cookie/hex/console.log); pair_code logging discipline verified at whatsapp.py:425 -- logs only length not value (avoids leak via screen-share of server logs); no new tickets; queued TKT-0035 (P3 frontend pair-code UI) as next Resolving target | log: docs/.support/conversations/2026-05-18T215443Z-ticketing_agent-iter85.md
 - 2026-05-18T22:01:00Z iter86 resolving_agent -> verification | TKT-0035 RESOLVED: four-file change set -- api.ts WaState.pair_code field + wa.connect(phone?) signature, useWaState.connect(phone?) thread-through, new components/connect/PairCodePanel.tsx (centered monospaced 4-3 chunked code + linked-devices instructions + Waiting fallback), app/connect/page.tsx adds Mode/phoneDraft/codeErr state + ModeSwitch tab-group + PairCodeStarter form (E.164 client validation, 422 toast.error + inline) + render branch QR-PairingPanel vs PairCodePanel; npx tsc --noEmit exit 0; curl /connect 200 with Loading skeleton (RequireAuth fires; full UI loads after login) | log: docs/.support/conversations/2026-05-18T215931Z-resolving_agent-iter86.md
-- 2026-05-18T22:08:00Z iter87 verification_agent -> ticketing | TKT-0035 VERIFIED + committed: eight proofs -- WaState.pair_code at api.ts:113, wa.connect(phone?) at :123, useWaState.connect(phone?) at :28, PairCodePanel.tsx 1970b with aria-label+formatChunks+Waiting fallback, connect/page.tsx imports PairCodePanel and uses ModeSwitch+PairCodeStarter+PairCodePanel + Mode type + handlers, tsc exit 0, zero non-ASCII across 4 files, curl /connect 200 + all 4 expected copy strings found in merged chunk _049tu0h._.js (59308 bytes); pair-code feature now end-to-end | log: docs/.support/conversations/2026-05-18T220705Z-verification_agent-iter87.md
+- 2026-05-18T22:08:00Z iter87 verification_agent -> ticketing | TKT-0035 VERIFIED + committed b1ccc59: eight proofs -- WaState.pair_code at api.ts:113, wa.connect(phone?) at :123, useWaState.connect(phone?) at :28, PairCodePanel.tsx 1970b with aria-label+formatChunks+Waiting fallback, connect/page.tsx imports PairCodePanel and uses ModeSwitch+PairCodeStarter+PairCodePanel + Mode type + handlers, tsc exit 0, zero non-ASCII across 4 files, curl /connect 200 + all 4 expected copy strings found in merged chunk _049tu0h._.js (59308 bytes); pair-code feature now end-to-end | log: docs/.support/conversations/2026-05-18T220705Z-verification_agent-iter87.md
+- 2026-05-18T22:11:52Z iter88 ticketing_agent -> resolving | iter86 diff security spot pass clean (no dangerouslySetInnerHTML/eval/localStorage/document.cookie/hex/console.log; sessionStorage hits are pre-existing AUTO_FLAG); no new tickets; queued TKT-0033 (postcss XSS advisory) with surgical fix: package.json overrides block pinning postcss:^8.5.10 + smoke production build, NO `npm audit fix --force` (would downgrade Next.js) | log: docs/.support/conversations/2026-05-18T221152Z-ticketing_agent-iter88.md
+- 2026-05-18T22:18:00Z iter89 resolving_agent -> verification | TKT-0033 RESOLVED: added "overrides":{"postcss":"^8.5.10"} to frontend/package.json; npm install bumped next's bundled postcss from 8.4.31 -> 8.5.14 (deduped with tailwind's existing 8.5.14); npm audit went from 2 moderate -> 0; production build (first attempt) failed on /login useSearchParams missing-Suspense static prerender requirement -- fixed inline by wrapping LoginPage default export in <Suspense fallback={null}><LoginForm/></Suspense> (latent bug from iter74 surfaced by the build smoke); npm run build now exit 0 with all 11 pages prerendered static; tsc exit 0; dev /login still 200 with copy intact | log: docs/.support/conversations/2026-05-18T221640Z-resolving_agent-iter89.md
+- 2026-05-18T22:22:00Z iter90 verification_agent -> ticketing | TKT-0033 VERIFIED + committed: six proofs reproduced -- overrides block at package.json:24-26, both postcss copies at 8.5.14 (overridden/deduped), npm audit total=0 across all severities, Suspense import + wrap + LoginForm at login/page.tsx:3/46/52, tsc exit 0, npm run build exit 0 with 9 routes prerendered Static | log: docs/.support/conversations/2026-05-18T222122Z-verification_agent-iter90.md

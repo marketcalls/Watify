@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ApiError, auth } from "@/lib/api";
@@ -37,7 +37,19 @@ function parseRetryAfter(body: unknown): number {
   return 60;
 }
 
+// TKT-0033: useSearchParams() must sit inside a Suspense boundary so
+// Next.js 16's static prerender can opt the page into client-side
+// rendering instead of failing the production build. Default export
+// is the Suspense wrapper; the actual form lives in LoginForm below.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
