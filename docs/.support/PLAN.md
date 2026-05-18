@@ -41,7 +41,7 @@ Source: `REQUIREMENTS.md`. Items are dependency-ordered top to bottom. The Backe
   - Validation: backend rejects sends when state != ready (HTTP 409).
   - Acceptance: both endpoints succeed once paired.
 
-- **[ ] B-07** — Send-to-group orchestrator + APScheduler.
+- **[x] B-07** — Send-to-group orchestrator + APScheduler. *(done iter12)*
   - APScheduler with `SQLAlchemyJobStore(url="sqlite:///app.db", tablename="apscheduler_jobs")`.
   - `POST /api/send` body: `{group_id, message, schedule: "now" | ISO8601, min_delay_s: 3, max_delay_s: 30}`.
   - Behavior: for each contact in group, sequentially: pick random delay ∈ [min,max], sleep, `wa.send(phone, message)`, persist `SendAttempt`. One message at a time per job. Per-job worker thread.

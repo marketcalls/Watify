@@ -4,13 +4,13 @@ This file is the single source of truth for "what runs next". Each loop iteratio
 
 ```yaml
 phase: scaffold           # planning | scaffold | backend | frontend | ticketing | resolving | verification | done
-agent: backend_agent      # which AGENTS.md role runs next
-iteration: 11
-last_updated: 2026-05-18T15:51:01Z
-last_conversation: docs/.support/conversations/2026-05-18T155101Z-frontend_agent-iter11.md
+agent: frontend_agent     # which AGENTS.md role runs next
+iteration: 12
+last_updated: 2026-05-18T15:56:09Z
+last_conversation: docs/.support/conversations/2026-05-18T155609Z-backend_agent-iter12.md
 servers:
   backend_running: true
-  backend_pid: 43712
+  backend_pid: 6160
   backend_url: http://localhost:8000
   frontend_running: true
   frontend_pid: 42204
@@ -23,23 +23,18 @@ tickets:
 ```
 
 ## Next Action
-Run the **Backend Agent** on PLAN item **B-07** — send-to-group orchestrator + APScheduler:
-- `uv add apscheduler` (3.x) and `tzlocal`.
-- `app/scheduler.py` — `BackgroundScheduler` with `SQLAlchemyJobStore(url="sqlite:///app.db", tablename="apscheduler_jobs")`. Started on FastAPI lifespan startup; shutdown on lifespan exit.
-- `app/sender.py` — pure function `run_send_job(job_id: int)` that:
-  1. Loads `SendJob` + its group's contacts.
-  2. Sets status running, started_at=now.
-  3. For each contact sequentially: pick `random.uniform(min_delay_s, max_delay_s)`, `time.sleep`, then queue `WaSingleton.send_to(contact.phone, message)` and record a SendAttempt. One at a time.
-  4. On completion set status completed/failed and finished_at.
-- `app/routers/jobs.py`:
-  - `POST /api/send` body `{group_id, message, schedule: "now"|ISO8601, min_delay_s, max_delay_s}` -> creates SendJob and schedules `run_send_job` via APScheduler. Returns job id.
-  - `GET /api/jobs` -> list jobs with progress (count of attempts by status).
-  - `GET /api/jobs/{id}` -> job + attempts.
-  - `DELETE /api/jobs/{id}` -> cancel if scheduled or pending.
-- Validation: 1 <= min_delay_s <= max_delay_s <= 300; group must exist + have >=1 contact; require wa state "ready".
-- Acceptance: schedule a 2-contact job for `now`, observe `apscheduler_jobs` table populated and attempts roll through with measurable delay (we can mock the actual wars.send for this test by checking attempts move pending -> sent over time when wars is paired; otherwise the attempts will record `failed: not_ready` and that's also a valid trace).
-- Mark B-07 `[x]`. Set `agent: frontend_agent` next (F-05 — compose + schedule UI).
-- Commit: `feat(B-07): send-to-group orchestrator + APScheduler`.
+Run the **Frontend Agent** on PLAN item **F-05** — compose + schedule page:
+- `src/hooks/useJobs.ts` — SWR for `GET /api/jobs` (refresh 3s) + `createSend`, `cancelJob` mutators; plus `useJobDetail(id)`.
+- `src/app/send/page.tsx`:
+  - Group dropdown reads `useGroups().list`.
+  - Message textarea (max 4096).
+  - Toggle: Send Now / Schedule. When Schedule, show a native `datetime-local` input.
+  - Delay controls: two number inputs `min_delay_s` (default 3) and `max_delay_s` (default 30), with helper text "random per-recipient delay" and a one-line preview e.g. "Each recipient: random 3-30s between sends".
+  - Submit -> POST /api/send; on 201 show the new job id + link to /history.
+- Surface backend 409/422 errors as inline form messages.
+- Acceptance: visiting /send and submitting creates a job visible at /history.
+- Mark F-05 `[x]`. Set `agent: frontend_agent` next (F-06 — history + dashboard updates) since the backend already provides everything F-06 needs.
+- Commit: `feat(F-05): compose page with Send Now / Schedule + delay controls`.
 
 ## History
 - 2026-05-18T00:00:00Z iter0 bootstrap -> planning | initial scaffold created by user | log: (none)
@@ -54,3 +49,4 @@ Run the **Backend Agent** on PLAN item **B-07** — send-to-group orchestrator +
 - 2026-05-18T15:41:22Z iter9 frontend_agent -> scaffold | F-03 done: useWaState SWR hook, Connect page with auto-pair on mount, QR display, Disconnect button, error/retry path; Dashboard WhatsApp tile uses live state | log: docs/.support/conversations/2026-05-18T154122Z-frontend_agent-iter9.md
 - 2026-05-18T15:46:09Z iter10 backend_agent -> scaffold | B-06 done: /api/wa/test/self|to endpoints; 409 not_ready when state!=ready; phone redaction in response; backend pid 43712 | log: docs/.support/conversations/2026-05-18T154609Z-backend_agent-iter10.md
 - 2026-05-18T15:51:01Z iter11 frontend_agent -> scaffold | F-04 done: Groups page with two-column layout, create/select/rename/delete, contact CRUD with 20-cap disabled UI, BulkAddModal with paste-and-preview + per-row error surfacing | log: docs/.support/conversations/2026-05-18T155101Z-frontend_agent-iter11.md
+- 2026-05-18T15:56:09Z iter12 backend_agent -> scaffold | B-07 done: scheduler.py (APScheduler 3.11 + SQLAlchemyJobStore), sender.run_send_job (sequential per-recipient with random delay), /api/send POST + /api/jobs[/{id}] + DELETE; 2-contact job ran end-to-end (failed with wa_not_ready as expected, phones redacted); scheduled-future job cancelled cleanly; backend pid 6160 | log: docs/.support/conversations/2026-05-18T155609Z-backend_agent-iter12.md
