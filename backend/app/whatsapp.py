@@ -116,6 +116,11 @@ WATCHDOG_INTERVAL_S = 5
 class ClientState:
     state: State = "disconnected"
     qr_data_url: Optional[str] = None
+    # TKT-0014: pair-code mode -- when the operator opts in by passing
+    # a phone number to /api/wa/connect, wars asks Meta for an 8-char
+    # code via @wa.on_pair_code. The code surfaces here so the UI can
+    # render "Type this on your phone".
+    pair_code: Optional[str] = None
     owner_phone: Optional[str] = None
     last_error: Optional[str] = None
     last_event_at: Optional[str] = None
@@ -145,6 +150,7 @@ class WaSingleton:
             return ClientState(
                 state=cls._state.state,
                 qr_data_url=cls._state.qr_data_url,
+                pair_code=cls._state.pair_code,
                 owner_phone=cls._state.owner_phone,
                 last_error=cls._state.last_error,
                 last_event_at=cls._state.last_event_at,
@@ -158,6 +164,8 @@ class WaSingleton:
         state: Optional[State] = None,
         qr_data_url: Optional[str] = None,
         clear_qr: bool = False,
+        pair_code: Optional[str] = None,
+        clear_pair_code: bool = False,
         owner_phone: Optional[str] = None,
         last_error: Optional[str] = None,
         clear_error: bool = False,
@@ -169,6 +177,10 @@ class WaSingleton:
                 cls._state.qr_data_url = None
             elif qr_data_url is not None:
                 cls._state.qr_data_url = qr_data_url
+            if clear_pair_code:
+                cls._state.pair_code = None
+            elif pair_code is not None:
+                cls._state.pair_code = pair_code
             if owner_phone is not None:
                 cls._state.owner_phone = owner_phone
             if clear_error:
@@ -400,12 +412,24 @@ class WaSingleton:
                     len(durl) if durl else 0,
                 )
 
+            # TKT-0014: pair-code callback. wars fires this when the
+            # operator opted in by passing a phone to wa.connect(phone)
+            # -- the 8-char code is then typed on the phone under
+            # WhatsApp -> Linked devices. Like the other callbacks,
+            # this runs on wars's Tokio thread (!= worker), so we
+            # only touch our own state lock, never `wa`.
+            if hasattr(wa, "on_pair_code"):
+                @wa.on_pair_code
+                def _on_pair_code(code: str) -> None:
+                    cls._set(state="pairing", pair_code=code, clear_qr=True, clear_error=True)
+                    log.info("wars on_pair_code: state=pairing pair_code_len=%d", len(code))
+
             @wa.on_connected
             def _on_connected() -> None:
                 # Callback fires on the wars Tokio thread (!= worker thread).
                 # Don't touch `wa` here -- PyO3 !Send panics. Queue the
                 # persist for the worker, which owns wa.
-                cls._set(state="ready", clear_qr=True, clear_error=True)
+                cls._set(state="ready", clear_qr=True, clear_pair_code=True, clear_error=True)
                 log.info("wars on_connected: state=ready")
                 cls._cmd_q.put(("persist", None))
 
@@ -493,18 +517,25 @@ class WaSingleton:
                     wa.disconnect()
                 except Exception:  # noqa: BLE001
                     pass
-                cls._set(state="disconnected", clear_qr=True)
+                cls._set(state="disconnected", clear_qr=True, clear_pair_code=True)
                 return
             try:
                 if cmd == "persist":
                     _persist_session()
                     continue
                 if cmd == "connect":
-                    wa.connect()
+                    # TKT-0014: when arg is a non-empty string, hand the
+                    # phone to wars's pair-code path. wars will then fire
+                    # @on_pair_code with the 8-char operator code instead
+                    # of @on_qr. arg=None keeps the QR flow.
+                    if isinstance(arg, str) and arg:
+                        wa.connect(arg)
+                    else:
+                        wa.connect()
                     _check_connected()
                 elif cmd == "disconnect":
                     wa.disconnect()
-                    cls._set(state="disconnected", clear_qr=True)
+                    cls._set(state="disconnected", clear_qr=True, clear_pair_code=True)
                 elif cmd == "cycle":
                     # TKT-0019: watchdog-triggered fresh-QR refresh.
                     cls._cycling = True
@@ -517,6 +548,7 @@ class WaSingleton:
                         # releases the previous noise session before we
                         # ask for a new one.
                         time.sleep(0.2)
+                        cls._set(clear_pair_code=True)
                         wa.connect()
                     finally:
                         cls._cycling = False
@@ -532,21 +564,30 @@ class WaSingleton:
     # --- public API ---
 
     @classmethod
-    def connect(cls) -> ClientState:
+    def connect(cls, phone: Optional[str] = None) -> ClientState:
+        """Initiate WhatsApp pairing.
+
+        ``phone`` is optional and selects the pair-code flow (TKT-0014):
+        when set to an E.164 phone number, wars asks Meta for an
+        8-character code that the operator types on the linked-devices
+        screen. When ``phone`` is None, wars uses the legacy QR flow
+        (the QR data-URL surfaces on ``ClientState.qr_data_url`` via
+        the @on_qr callback).
+        """
         cls._ensure_worker()
         cls._ready_event.wait(timeout=5.0)
         snap = cls.snapshot()
         if snap.state in ("ready", "pairing"):
             return snap
-        cls._set(state="pairing", clear_error=True)
-        cls._cmd_q.put(("connect", None))
+        cls._set(state="pairing", clear_error=True, clear_pair_code=True)
+        cls._cmd_q.put(("connect", phone))
         return cls.snapshot()
 
     @classmethod
     def disconnect(cls) -> ClientState:
         # Optimistic state flip: wars.disconnect is idempotent, the worker
         # will catch up. UI doesn't have to wait one poll for the truth.
-        cls._set(state="disconnected", clear_qr=True)
+        cls._set(state="disconnected", clear_qr=True, clear_pair_code=True)
         if cls._worker is not None and cls._worker.is_alive():
             cls._cmd_q.put(("disconnect", None))
         return cls.snapshot()

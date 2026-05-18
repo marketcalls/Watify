@@ -5,12 +5,12 @@ This file is the single source of truth for "what runs next". Each loop iteratio
 ```yaml
 phase: ticketing
 agent: ticketing_agent
-iteration: 81
-last_updated: 2026-05-18T21:34:00Z
-last_conversation: docs/.support/conversations/2026-05-18T213351Z-verification_agent-iter81.md
+iteration: 84
+last_updated: 2026-05-18T21:50:00Z
+last_conversation: docs/.support/conversations/2026-05-18T214956Z-verification_agent-iter84.md
 servers:
   backend_running: true
-  backend_pid: 37636
+  backend_pid: 16032
   backend_url: http://localhost:8000
   frontend_running: true
   frontend_pid: 42204
@@ -19,8 +19,9 @@ tickets:
   open: 7
   inprogress: 0
   resolved: 0
-  verified: 27
+  verified: 28
 ticket_index:
+  TKT-0014: verified P2 backend Pair-code mode (backend slice)
   TKT-0024: verified P1 backend Auth endpoints + JWT cookies + auth rate limits
   TKT-0025: verified P1 backend Auth middleware
   TKT-0026: verified P1 frontend /login + /register pages
@@ -30,6 +31,7 @@ ticket_index:
   TKT-0030: verified P1 infra install/install.sh + update.sh
   TKT-0032: verified P2 backend CSRF defense (X-Requested-With + Origin check)
   TKT-0034: verified P1 frontend apiFetch credentials include
+  TKT-0035: open P3 frontend Pair-code frontend toggle + panel
   TKT-0027: open P2 frontend Public hero page; move dashboard to /dashboard
   TKT-0028: open P2 frontend Auth-aware TopNav
   TKT-0029: open P2 frontend Route guards
@@ -46,12 +48,11 @@ ticket_index:
 ```
 
 ## Next Action
-**Ticketing Agent** re-triages. Remaining open queue is one P2 + six P3:
-- P2 backend: TKT-0014 (pair-code mode alongside QR)
+**Ticketing Agent** re-triages. Open queue is now 7 P3 (six original P3 + TKT-0035 P3 pair-code frontend):
 - P3 backend: TKT-0006 (test phone constant), TKT-0016 (paired vs ready state machine), TKT-0017 (JID helpers)
-- P3 frontend: TKT-0018 (SSE push of QR), TKT-0022 (job drawer cache drift), TKT-0033 (Next.js postcss XSS advisory)
+- P3 frontend: TKT-0018 (SSE push of QR), TKT-0022 (job drawer cache drift), TKT-0033 (Next.js postcss XSS advisory), TKT-0035 (pair-code mode-switch + PairCodePanel)
 
-Suggested next Resolving target: **TKT-0014** -- the last P2 ticket and a meaningful user-facing feature. Per AGENTS.md the Resolving Agent picks highest-priority open ticket so this is the strict pick. The Ticketing Agent should also run a brief security spot pass over the iter80 diff (Toaster + layout + 4 hooks).
+All P1+P2 work is now verified. Suggested next Resolving target by user-facing impact: **TKT-0035** (the user-visible half of pair-code mode just shipped on the backend). Alternative: TKT-0033 (security advisory tracking, requires only a `package.json` audit + README note). Both are small enough for a single iteration. Ticketing should also run a brief security spot pass over the iter83 diff (whatsapp.py + routers/whatsapp.py).
 
 ## History (latest only)
 - 2026-05-18T20:07:00Z iter63 verification_agent -> ticketing | TKT-0026 VERIFIED + committed c9835a8: eight proofs -- file presence (4 files), exports (`auth`/`AuthAck`/`MeResponse`), useAuth 401-as-null + shouldRetryOnError=false, zero non-ASCII chars (no emojis/icons), tsc --noEmit exit 0, curl /login + /register HTTP 200 with expected copy strings, Next.js compiled src_app_login_page_tsx_05e8nkp._.js chunk, backend endpoints behave per UI contract (auth/me 401, register 409 registration_closed, login bad-password 401 invalid_credentials) | log: docs/.support/conversations/2026-05-18T200607Z-verification_agent-iter63.md
@@ -72,4 +73,7 @@ Suggested next Resolving target: **TKT-0014** -- the last P2 ticket and a meanin
 - 2026-05-18T21:20:00Z iter78 verification_agent -> ticketing | TKT-0032 VERIFIED + committed 13fc7db: four structural checks (py_compile clean, tsc exit 0, X-Requested-With at api.ts:50, middleware order CORS@57/Auth@70/CSRF@78 with CSRF outermost) + 8 smokes independently reproduced (GET 401, POST no-hdr 403, POST+X-Requested-With 401, POST+Origin=cors 401, POST+Origin=evil 403, login no-hdr 401invalid, login+X-Requested-With 401invalid, OPTIONS 200) | log: docs/.support/conversations/2026-05-18T211927Z-verification_agent-iter78.md
 - 2026-05-18T21:24:24Z iter79 ticketing_agent -> resolving | iter77 csrf diff security spot pass clean (no dangerouslySetInnerHTML/eval/storage/cookie/hex/console.log across csrf_middleware.py + main.py + api.ts); chose TKT-0008 (frontend toaster, smaller self-contained scope) over TKT-0014 (pair-code mode, multi-iter PyO3 worker refactor) for next Resolving; no new tickets; counts steady open=8 verified=26 | log: docs/.support/conversations/2026-05-18T212424Z-ticketing_agent-iter79.md
 - 2026-05-18T21:32:00Z iter80 resolving_agent -> verification | TKT-0008 RESOLVED: six-file change set -- new components/Toaster.tsx (module-singleton store + useSyncExternalStore + toast.success/.error/.dismiss + Tailwind colored-border cards bottom-right + per-toast close + aria-live/role attrs + SSR-safe typeof window guard), layout.tsx mounts <Toaster /> once after children, hook wires in useGroups (create/rename/delete), useGroupDetail (bulkAddContacts with 3-branch copy), useWaState (disconnect), useJobs (cancelJob); npx tsc --noEmit exit 0; curl / + /dashboard both 200 | log: docs/.support/conversations/2026-05-18T212907Z-resolving_agent-iter80.md
-- 2026-05-18T21:34:00Z iter81 verification_agent -> ticketing | TKT-0008 VERIFIED + committed: seven proofs -- Toaster.tsx 2814b with useSyncExternalStore+toast.{success,error,dismiss}+Toaster default, layout.tsx mounts after children, all 4 hooks import+fire toast at correct lines, tsc exit 0, zero non-ASCII across all 5 edited files, curl / + /dashboard + /groups all 200, SSR-safe typeof window guard at line 38 + getServerSnapshot returns [] at line 61 | log: docs/.support/conversations/2026-05-18T213351Z-verification_agent-iter81.md
+- 2026-05-18T21:34:00Z iter81 verification_agent -> ticketing | TKT-0008 VERIFIED + committed 9605962: seven proofs -- Toaster.tsx 2814b with useSyncExternalStore+toast.{success,error,dismiss}+Toaster default, layout.tsx mounts after children, all 4 hooks import+fire toast at correct lines, tsc exit 0, zero non-ASCII across all 5 edited files, curl / + /dashboard + /groups all 200, SSR-safe typeof window guard at line 38 + getServerSnapshot returns [] at line 61 | log: docs/.support/conversations/2026-05-18T213351Z-verification_agent-iter81.md
+- 2026-05-18T21:38:39Z iter82 ticketing_agent -> resolving | iter80 diff security spot pass clean (no dangerouslySetInnerHTML/eval/storage/cookie/hex/console.log across the 6 changed files); no new tickets; queued TKT-0014 (pair-code mode) as the last P2 with a recommended backend-first split (worker connect(phone) + on_pair_code callback + WaState pair_code field + /api/wa/connect body extension); counts unchanged open=7 verified=27 | log: docs/.support/conversations/2026-05-18T213839Z-ticketing_agent-iter82.md
+- 2026-05-18T21:48:00Z iter83 resolving_agent -> verification | TKT-0014 RESOLVED (backend slice): ClientState.pair_code + _set kwargs + snapshot mirroring; @wa.on_pair_code callback (hasattr gated) sets pair_code state from wars Tokio thread (state-lock only); worker connect branch dispatches wa.connect(phone) when arg is a non-empty string; on_connected/disconnect/cycle/stop all clear_pair_code; public WaSingleton.connect(phone=None); router WaConnectRequest body + WaState.pair_code field + normalize_phone-validated 422 invalid_phone; py_compile clean; backend pid 16032; 4 smokes pass (no-body 200 QR, state has pair_code field, phone-body 200 pair-code path, garbage phone 422); filed TKT-0035 (P3 frontend) for the /connect mode-switch + PairCodePanel follow-on | log: docs/.support/conversations/2026-05-18T214324Z-resolving_agent-iter83.md
+- 2026-05-18T21:50:00Z iter84 verification_agent -> ticketing | TKT-0014 VERIFIED + committed: eight checks -- py_compile clean, pair_code in ClientState/_set/WaState DTO, @wa.on_pair_code hasattr-gated at whatsapp.py:421-423, WaSingleton.connect(phone) at :567, worker dispatch at :526-532 with isinstance(arg,str) and arg, router WaConnectRequest at :25 + handler at :73, _snapshot_to_dto carries pair_code at :60, 4 smokes pass (A 200 QR, B state keys include pair_code, C 200 phone-body, D 422 invalid_phone); all P1+P2 now verified | log: docs/.support/conversations/2026-05-18T214956Z-verification_agent-iter84.md
