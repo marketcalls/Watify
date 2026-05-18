@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
 from app.auth_middleware import AuthMiddleware
+from app.csrf_middleware import CSRFMiddleware
 from app.db import init_db
 from app.identity import fingerprint as app_fingerprint
 from app.identity import is_configured as identity_configured
@@ -67,6 +68,14 @@ app.add_middleware(
 # request; slowapi decorators wrap the handler itself, so rate limits
 # stay INSIDE the gate -- a 429 can never disclose token validity.
 app.add_middleware(AuthMiddleware)
+
+# TKT-0032: CSRFMiddleware registered AFTER AuthMiddleware so it sits
+# OUTERMOST. On a state-changing /api/* request the order is:
+# CSRF -> Auth -> CORS -> handler. A forged unauthenticated POST is
+# rejected 403 csrf_required before it ever reaches the auth check,
+# which is fine -- both gates would reject the request anyway, and
+# this layering keeps the CSRF concern self-contained.
+app.add_middleware(CSRFMiddleware)
 
 
 @app.exception_handler(StarletteHTTPException)

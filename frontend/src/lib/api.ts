@@ -41,6 +41,13 @@ export async function apiFetch<T>(
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      // TKT-0032: CSRF defense-in-depth. The backend CSRFMiddleware
+      // requires either this custom header (which simple HTML forms
+      // cannot set) or a same-origin Origin header on POST/PATCH/
+      // PUT/DELETE under /api/*. Setting it here means every browser
+      // call from our frontend passes the gate; cross-site forged
+      // requests cannot.
+      "X-Requested-With": "XMLHttpRequest",
       ...(init?.headers ?? {}),
     },
   });
