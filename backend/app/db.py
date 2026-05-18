@@ -3,7 +3,9 @@ from pathlib import Path
 
 from sqlmodel import Session, SQLModel, create_engine
 
-DB_PATH = Path(__file__).resolve().parent.parent / "app.db"
+from app.settings import settings
+
+DB_PATH = Path(settings.app_db).resolve()
 DATABASE_URL = f"sqlite:///{DB_PATH.as_posix()}"
 
 engine = create_engine(

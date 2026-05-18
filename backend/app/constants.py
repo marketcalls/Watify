@@ -1,9 +1,10 @@
-"""Compile-time constants. Settings that should be overridable via env
-will move to `app.settings` in B-08; until then these are the single
-source of truth.
+"""Compile-time mirrors of `settings`. Routers that want a plain constant
+import these names; settings remains the single source of truth.
 """
 
-MAX_CONTACTS_PER_GROUP = 20
-DEFAULT_MIN_DELAY_S = 3
-DEFAULT_MAX_DELAY_S = 30
+from app.settings import settings
+
+MAX_CONTACTS_PER_GROUP = settings.group_max_contacts
+DEFAULT_MIN_DELAY_S = settings.min_delay_s
+DEFAULT_MAX_DELAY_S = settings.max_delay_s
 MAX_DELAY_S = 300

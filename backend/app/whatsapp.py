@@ -26,11 +26,13 @@ from typing import Any, Literal, Optional
 
 from wars import WhatsApp, qr_to_data_url
 
+from app.settings import settings
+
 log = logging.getLogger(__name__)
 
 State = Literal["disconnected", "pairing", "ready", "error"]
 
-DB_PATH = Path(__file__).resolve().parent.parent / "whatsapp.db"
+DB_PATH = Path(settings.whatsapp_db).resolve()
 
 
 @dataclass

@@ -49,7 +49,7 @@ Source: `REQUIREMENTS.md`. Items are dependency-ordered top to bottom. The Backe
   - `GET /api/jobs`, `GET /api/jobs/{id}` returns job + attempts. `DELETE /api/jobs/{id}` cancels pending.
   - Acceptance: scheduled job survives restart; immediate job sends to a 2-contact group with observable delays in attempts.
 
-- **[ ] B-08** — Hardening + logging.
+- **[x] B-08** — Hardening + logging. *(done iter15)*
   - Structured logging via `logging` to `docs/.support/logs/backend.log`. Redact full phone numbers (`+91XXXXX1234`).
   - Settings via `pydantic-settings` reading `backend/.env`.
   - Global exception handler returning JSON errors.

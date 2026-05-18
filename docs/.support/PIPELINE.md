@@ -3,14 +3,14 @@
 This file is the single source of truth for "what runs next". Each loop iteration reads this, executes one chunk as the named agent, then updates this file.
 
 ```yaml
-phase: scaffold           # planning | scaffold | backend | frontend | ticketing | resolving | verification | done
-agent: backend_agent      # which AGENTS.md role runs next
-iteration: 14
-last_updated: 2026-05-18T16:05:14Z
-last_conversation: docs/.support/conversations/2026-05-18T160514Z-frontend_agent-iter14.md
+phase: ticketing          # planning | scaffold | backend | frontend | ticketing | resolving | verification | done
+agent: ticketing_agent    # which AGENTS.md role runs next
+iteration: 15
+last_updated: 2026-05-18T16:10:14Z
+last_conversation: docs/.support/conversations/2026-05-18T161014Z-backend_agent-iter15.md
 servers:
   backend_running: true
-  backend_pid: 6160
+  backend_pid: 38272
   backend_url: http://localhost:8000
   frontend_running: true
   frontend_pid: 42204
@@ -23,14 +23,23 @@ tickets:
 ```
 
 ## Next Action
-Run the **Backend Agent** on PLAN item **B-08** — hardening + logging:
-- Add `app/settings.py` with `pydantic-settings` reading `backend/.env`. Migrate hardcoded constants (`CORS_ORIGIN`, `HOST`, `PORT`, `APP_DB`, `WHATSAPP_DB`, `MIN/MAX_DELAY_S`, `GROUP_MAX_CONTACTS`, `LOG_LEVEL`, `LOG_FILE`). Default = current behavior.
-- Replace direct uses of `MAX_CONTACTS_PER_GROUP`, `DEFAULT_MIN_DELAY_S`, etc. with settings reads.
-- Configure root logging: stdlib `logging.basicConfig` to write JSON-ish single-line records to `docs/.support/logs/backend.log` AND stderr, redacting any phone-like substring via a custom `Filter` (uses `app.jid.redact_phone` logic).
-- Add a global FastAPI exception handler returning JSON `{error: str, detail: ...}` for both `HTTPException` and unexpected errors (500).
-- Acceptance: backend.log shows new entries with the redaction filter active; uncaught error returns JSON not HTML.
-- Mark B-08 `[x]`. Set `phase: ticketing` (all PLAN B/F items done after B-08 except F-07; reorder if we want F-07 polish before ticketing).
-- Commit: `feat(B-08): pydantic-settings + structured logging with phone redaction`.
+Run the **Ticketing Agent** for the first time. Scaffold complete (B-01..B-08 + F-01..F-06). Remaining PLAN items F-07 and I-01..I-04 are handled as tickets by this pass.
+
+Per AGENTS.md, this iteration must:
+1. Confirm backend (pid 38272) on :8000 and frontend (pid 42204) on :3000 are healthy.
+2. Run a security audit pass:
+   - grep for hardcoded secrets / IPs / phone numbers outside `.env*` and code that reads env.
+   - confirm `.gitignore` covers `backend/.env`, `app.db`, `whatsapp.db`, `*.pid`.
+   - confirm no `.env` files in `git ls-files`.
+   - confirm CORS pinned, no `dangerouslySetInnerHTML`, no `eval`, no f-string SQL.
+   - confirm phone redaction filter active in `backend.log`.
+3. Use Chrome MCP to walk through `http://localhost:3000`: Dashboard / Connect / Groups / Send / History. Capture console + network errors via `read_console_messages` and `read_network_requests`. Then disconnect the wars singleton at the end so the next iteration starts clean.
+4. File a P0/P1/P2/P3 ticket per finding in `docs/.support/tickets/TKT-NNNN-slug.md` (status `open`, frontmatter per AGENTS.md). Surface at minimum the known issues:
+   - The pending F-07 polish items (empty states, error toasts, soft-cap reminder banner).
+   - The pending I-01..I-04 infra items.
+   - The 409 error response shape (`{"detail":{"error":...}}` vs flat) noted by B-03 / B-04 / B-06 / B-10 conversation logs.
+   - The backend doesn't yet expose `owner_phone` once paired (wars 0.1.3 binding limitation noted in iter8).
+5. Update PIPELINE.md: set `agent: resolving_agent` if any P0/P1 tickets are open, otherwise leave it on `ticketing_agent` for another sweep next iteration.
 
 ## History
 - 2026-05-18T00:00:00Z iter0 bootstrap -> planning | initial scaffold created by user | log: (none)
@@ -48,3 +57,4 @@ Run the **Backend Agent** on PLAN item **B-08** — hardening + logging:
 - 2026-05-18T15:56:09Z iter12 backend_agent -> scaffold | B-07 done: scheduler.py (APScheduler 3.11 + SQLAlchemyJobStore), sender.run_send_job (sequential per-recipient with random delay), /api/send POST + /api/jobs[/{id}] + DELETE; 2-contact job ran end-to-end (failed with wa_not_ready as expected, phones redacted); scheduled-future job cancelled cleanly; backend pid 6160 | log: docs/.support/conversations/2026-05-18T155609Z-backend_agent-iter12.md
 - 2026-05-18T16:00:23Z iter13 frontend_agent -> scaffold | F-05 done: useJobs SWR + useJobDetail, Send page with group dropdown, message textarea, Send Now/Schedule toggle with datetime-local, min/max delay number inputs (1..300 with clamps), inline 409/422 surfacing, created-job confirmation linking to /history | log: docs/.support/conversations/2026-05-18T160023Z-frontend_agent-iter13.md
 - 2026-05-18T16:05:14Z iter14 frontend_agent -> scaffold | F-06 done: /history table with expandable JobRow per-attempt drawer, StatusBadge pills (job + attempt), Dashboard tiles now show live counts (groups, contacts, jobs today, sent 24h) | log: docs/.support/conversations/2026-05-18T160514Z-frontend_agent-iter14.md
+- 2026-05-18T16:10:14Z iter15 backend_agent -> ticketing | B-08 done: pydantic-settings reading backend/.env, logging_setup.configure() with PhoneRedactionFilter + RotatingFileHandler, global Exception->500 JSON handler; redaction smoke verified (`+91 9876543210` -> `+91 98XXXX3210`); SCAFFOLD COMPLETE, phase advances to ticketing; backend pid 38272 | log: docs/.support/conversations/2026-05-18T161014Z-backend_agent-iter15.md
