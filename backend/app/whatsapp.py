@@ -17,6 +17,7 @@ multiple worker processes against the same `whatsapp.db`.
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import threading
 import time
@@ -25,7 +26,28 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from wars import WhatsApp, qr_to_data_url
+# TKT-0012: silence three wars / whatsapp-rust protocol log targets that
+# emit WARN/ERROR for routine multi-device protocol events:
+#   - wacore::send                            "Failed to encrypt for device:
+#                                              <stale-LID>: session not found"
+#   - whatsapp_rust::message                  "Decryption still failed after
+#                                              PN->LID migration"
+#   - wacore_libsignal::protocol::session_cipher
+#                                             "Message from <LID> failed to
+#                                              decrypt; No current session"
+# Each fires when wars routes around a stale linked-device or an undecryptable
+# incoming message -- non-actionable noise. The operator can override by
+# setting RUST_LOG in the shell / .env; `setdefault` preserves their value.
+# Must run before the wars import below.
+os.environ.setdefault(
+    "RUST_LOG",
+    "error"
+    ",wacore::send=off"
+    ",whatsapp_rust::message=off"
+    ",wacore_libsignal::protocol::session_cipher=off",
+)
+
+from wars import WhatsApp, qr_to_data_url  # noqa: E402
 
 from app.settings import settings
 

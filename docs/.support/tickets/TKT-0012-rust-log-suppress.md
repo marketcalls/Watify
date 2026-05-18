@@ -1,11 +1,11 @@
 ---
 id: TKT-0012
 title: Suppress noisy wars / whatsapp-rust / wacore log output via RUST_LOG defaults
-status: open
+status: verified
 priority: P2
 area: backend
 created: 2026-05-18T17:29:25Z
-updated: 2026-05-18T17:29:25Z
+updated: 2026-05-18T18:12:28Z
 created_by: ticketing_agent
 related_plan_item: B-05, B-08
 filed_via: gap_analysis
@@ -35,3 +35,19 @@ None are actionable for the operator. LIDs are privacy-preserving identifiers, n
 
 ## Resolution history
 - 2026-05-18T17:29:25Z -- filed by Ticketing Agent (iter32).
+- 2026-05-18T18:07:43Z -- Resolving Agent (iter40) set status to inprogress.
+- 2026-05-18T18:08:30Z -- Resolving Agent (iter40) shipped a one-line `os.environ.setdefault(...)` in `backend/app/whatsapp.py`, placed BEFORE `from wars import ...`:
+  - Value: `"error,wacore::send=off,whatsapp_rust::message=off,wacore_libsignal::protocol::session_cipher=off"` -- matches the openalgo default that motivated the ticket.
+  - `setdefault` preserves any operator-supplied `RUST_LOG=debug` etc. so production diagnostics are not blocked.
+  - Documented in a block comment above the call so the next reader sees which three log targets are silenced and why each is non-actionable.
+
+  Verified via import sanity: `python -c "import app.whatsapp; print(os.environ['RUST_LOG'])"` -> the full silencing string. py_compile clean.
+
+  Backend NOT restarted (live session preserved); Verification Agent will respawn and grep `backend.log` to confirm the three target lines disappear.
+
+  Status set to `resolved`.
+- 2026-05-18T18:12:28Z -- Verification Agent (iter41) PASSED all 3 checks:
+  1. Post-restart `backend.log` after wars connect + 10 s idle: `grep -cE "wacore::send|whatsapp_rust::message|wacore_libsignal"` -> `0`. Previously this grep returned dozens of WARN/ERROR lines per session.
+  2. Operator override: `RUST_LOG=warn uv run python -c "import app.whatsapp"` -> `os.environ['RUST_LOG'] == 'warn'`. `setdefault` does not clobber an operator-supplied value.
+  3. Default write: with `RUST_LOG` removed from env, importing `app.whatsapp` writes the silencing string (`error,wacore::send=off,...`).
+  Status set to `verified`. Committed `fix(TKT-0012): RUST_LOG defaults silence wars protocol noise` and pushed.

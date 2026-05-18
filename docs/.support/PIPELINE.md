@@ -5,21 +5,21 @@ This file is the single source of truth for "what runs next". Each loop iteratio
 ```yaml
 phase: ticketing
 agent: resolving_agent
-iteration: 39
-last_updated: 2026-05-18T18:01:04Z
-last_conversation: docs/.support/conversations/2026-05-18T180104Z-verification_agent-iter39.md
+iteration: 41
+last_updated: 2026-05-18T18:12:28Z
+last_conversation: docs/.support/conversations/2026-05-18T181228Z-verification_agent-iter41.md
 servers:
   backend_running: true
-  backend_pid: 5036
+  backend_pid: 37772
   backend_url: http://localhost:8000
   frontend_running: true
   frontend_pid: 42204
   frontend_url: http://localhost:3000
 tickets:
-  open: 9
+  open: 8
   inprogress: 0
   resolved: 0
-  verified: 11
+  verified: 12
 ticket_index:
   TKT-0001: verified P2 backend Flat error envelope
   TKT-0002: verified P1 frontend UX polish
@@ -32,7 +32,7 @@ ticket_index:
   TKT-0009: verified P2 backend Cascade-delete groups
   TKT-0010: verified P1 frontend QR pair UX countdown + dim on expiry
   TKT-0011: verified P1 backend Encrypted session infrastructure
-  TKT-0012: open P2 backend RUST_LOG defaults
+  TKT-0012: verified P2 backend RUST_LOG defaults silence wars noise
   TKT-0013: open P2 backend Lazy wars import + WarsNotInstalled
   TKT-0014: open P2 backend Pair-code mode alongside QR
   TKT-0015: open P2 backend Rate-limit middleware on send
@@ -45,15 +45,18 @@ ticket_index:
 ```
 
 ## Next Action
-9 open tickets remain, no P1 left. Suggested order:
-1. **TKT-0012** (P2 backend) -- RUST_LOG defaults silence wars protocol noise. One-line `os.environ.setdefault(...)` before the wars import.
-2. **TKT-0013** (P2 backend) -- lazy `_import_wars()` + `WarsNotInstalled` sentinel. Small refactor.
-3. TKT-0019-style auto-cycle / TKT-0008 toaster / TKT-0014 pair-code / TKT-0015 rate limit / TKT-0005 owner_phone -- bigger features.
-4. TKT-0016 / TKT-0017 / TKT-0018 / TKT-0006 -- P3 polish.
+8 open tickets, all P2 or P3. Recommended order:
+1. **TKT-0013** (P2 backend) -- lazy `_import_wars()` + `WarsNotInstalled` sentinel. Small refactor; backend boots without wars wheel.
+2. **TKT-0005** (P2 backend) -- surface owner_phone after pair.
+3. **TKT-0015** (P2 backend) -- slowapi rate limit.
+4. **TKT-0014** (P2 backend) -- pair-code mode.
+5. **TKT-0008** (P2 frontend) -- global Toaster.
+6. **TKT-0016 / TKT-0017 / TKT-0018 / TKT-0006** -- P3 polish.
 
-Recommended for iter40: `agent: resolving_agent`, ticket **TKT-0012** (RUST_LOG suppress).
+Recommended for iter42: `agent: resolving_agent`, ticket **TKT-0013** (lazy wars import).
 
-## History (latest only -- prior iterations in git history)
-- 2026-05-18T17:51:26Z iter37 verification | TKT-0011 VERIFIED + committed 90e3ca8
-- 2026-05-18T17:56:44Z iter38 resolving | TKT-0021 wiring shipped
-- 2026-05-18T18:01:04Z iter39 verification_agent -> ticketing | TKT-0021 VERIFIED end-to-end after fixing 2 in-field bugs (cross-thread persist + Windows file-lock cleanup): migration moved 499712B session from whatsapp.db to encrypted WaSession blob; second boot reads from blob and sweeps stale files; whatsapp.db family is now absent | log: docs/.support/conversations/2026-05-18T180104Z-verification_agent-iter39.md
+## History (latest only)
+- 2026-05-18T18:01:04Z iter39 verification | TKT-0021 VERIFIED + committed 8b200ff
+- 2026-05-18T18:07:43Z iter40 resolving | TKT-0012 RUST_LOG setdefault shipped
+- 2026-05-18T18:12:28Z iter41 verification_agent -> ticketing | TKT-0012 VERIFIED + committed: 0 noisy log matches after restart + 10s idle; setdefault preserves operator RUST_LOG=warn; default writes silencing string | log: docs/.support/conversations/2026-05-18T181228Z-verification_agent-iter41.md
+```
