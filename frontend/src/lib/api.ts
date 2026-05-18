@@ -138,3 +138,68 @@ export const groups = {
 };
 
 export const GROUP_MAX = 20;
+export const DEFAULT_MIN_DELAY_S = 3;
+export const DEFAULT_MAX_DELAY_S = 30;
+export const MAX_DELAY_S = 300;
+
+export type JobStatus =
+  | "pending"
+  | "scheduled"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type AttemptStatus = "pending" | "sent" | "failed";
+
+export type JobCounts = {
+  total: number;
+  pending: number;
+  sent: number;
+  failed: number;
+};
+
+export type SendJobRead = {
+  id: number;
+  group_id: number;
+  group_name: string;
+  message_preview: string;
+  status: JobStatus;
+  scheduled_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  min_delay_s: number;
+  max_delay_s: number;
+  created_at: string;
+  counts: JobCounts;
+};
+
+export type SendAttemptRead = {
+  id: number;
+  contact_id: number;
+  contact_name: string;
+  contact_phone_redacted: string;
+  status: AttemptStatus;
+  sent_at: string | null;
+  error: string | null;
+};
+
+export type SendJobDetail = SendJobRead & {
+  message: string;
+  attempts: SendAttemptRead[];
+};
+
+export type SendRequest = {
+  group_id: number;
+  message: string;
+  schedule: string; // "now" or ISO 8601
+  min_delay_s: number;
+  max_delay_s: number;
+};
+
+export const jobs = {
+  list: () => api.get<SendJobRead[]>("/api/jobs"),
+  get: (id: number) => api.get<SendJobDetail>(`/api/jobs/${id}`),
+  create: (body: SendRequest) => api.post<SendJobRead>("/api/send", body),
+  cancel: (id: number) => api.del<void>(`/api/jobs/${id}`),
+};

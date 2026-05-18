@@ -79,7 +79,7 @@ Source: `REQUIREMENTS.md`. Items are dependency-ordered top to bottom. The Backe
   - Bulk upload modal: paste CSV (`name,phone`), preview, submit; surfaces row-level errors.
   - Acceptance: 20-cap enforced visually and by backend; bulk all-or-nothing.
 
-- **[ ] F-05** — `/send` page.
+- **[x] F-05** — `/send` page. *(done iter13)*
   - Choose group dropdown, message textarea, send mode toggle (Now / Schedule).
   - Schedule mode: native datetime input.
   - Delay controls: min/max sliders (range 1–300), default 3–30, with helper text "random per-recipient delay".
