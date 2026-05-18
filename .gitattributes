@@ -1,0 +1,5 @@
+# Force LF line endings on shell scripts so they run correctly on
+# Linux even when authored or checked out on Windows. Bash refuses
+# scripts with CR characters in the shebang or anywhere in the body.
+install/*.sh text eol=lf
+*.sh text eol=lf
