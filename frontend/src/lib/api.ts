@@ -33,6 +33,12 @@ export async function apiFetch<T>(
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const res = await fetch(url, {
     ...init,
+    // TKT-0034: cross-origin (3000 -> 8000) so cookies are not sent
+    // by default. The backend auth gate (TKT-0025) requires the
+    // watify_session cookie set by /api/auth/login on every protected
+    // /api/* call; without "include" every dashboard read silently
+    // 401s. Backend CORSMiddleware already sets allow_credentials=True.
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
