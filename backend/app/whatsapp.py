@@ -162,10 +162,144 @@ class WaSingleton:
             )
             cls._cmd_q.put(("cycle", None))
 
+    @staticmethod
+    def _delete_legacy_wa_db_files() -> int:
+        """Remove `whatsapp.db` + sidecars from disk. Returns count of
+        files actually removed. Safe to call when wars doesn't hold the
+        files open -- on Windows in particular, this works at boot
+        before `_build_wa` opens anything."""
+        n = 0
+        for path in (
+            DB_PATH,
+            DB_PATH.with_suffix(".db-wal"),
+            DB_PATH.with_suffix(".db-shm"),
+            DB_PATH.with_suffix(".db-journal"),
+        ):
+            try:
+                if path.exists():
+                    path.unlink()
+                    n += 1
+            except OSError as e:
+                log.warning("could not remove %s: %s", path, e)
+        return n
+
+    @classmethod
+    def _build_wa(cls) -> tuple[WhatsApp, bool]:
+        """Pick a wars constructor based on session-encryption settings.
+
+        Returns (wa_instance, migrated_from_file). The bool is True when
+        we opened the legacy `whatsapp.db` file under encrypted mode and
+        the worker should export+save+delete on first ready transition.
+
+        Modes:
+        - key unset: legacy file-backed -> WhatsApp(DB_PATH). Bool False.
+        - key set + WaSession row exists: in-memory -> WhatsApp.from_bytes(blob). Bool False.
+        - key set + no row but legacy file exists: bridge -> WhatsApp(DB_PATH), True (migrate after first ready).
+        - key set + neither: fresh -> WhatsApp() (in-memory). Bool False.
+        """
+        key = settings.session_encryption_key
+        if not key:
+            log.info("wars: legacy file-backed mode (whatsapp.db at %s)", DB_PATH)
+            return WhatsApp(str(DB_PATH)), False
+
+        # Encrypted mode.
+        from sqlmodel import Session
+
+        from app import session_crypto as sc
+        from app.db import engine
+
+        try:
+            with Session(engine) as db:
+                if sc.has_session(db):
+                    blob = sc.load_session(db, key)
+                    log.info(
+                        "wars: encrypted mode -- booting from WaSession row (%dB plaintext, in-memory)",
+                        len(blob) if blob else 0,
+                    )
+                    # Cleanup any stale `whatsapp.db` that a previous
+                    # run could not unlink while wars held it open.
+                    # Safe here: we have not constructed wa yet.
+                    removed = cls._delete_legacy_wa_db_files()
+                    if removed:
+                        log.info(
+                            "wars: removed %d stale legacy whatsapp.db file(s) at boot",
+                            removed,
+                        )
+                    return WhatsApp.from_bytes(blob), False
+        except Exception as e:  # noqa: BLE001
+            log.exception(
+                "wars: encrypted mode -- could not load WaSession (%s); falling back to fresh start",
+                e,
+            )
+
+        if DB_PATH.exists():
+            log.info(
+                "wars: encrypted mode -- WaSession empty, whatsapp.db exists; will migrate on first ready",
+            )
+            return WhatsApp(str(DB_PATH)), True
+
+        log.info("wars: encrypted mode -- fresh start (in-memory, awaits pair)")
+        return WhatsApp(), False
+
     @classmethod
     def _worker_loop(cls) -> None:
         try:
-            wa = WhatsApp(str(DB_PATH))
+            wa, migrated_from_file = cls._build_wa()
+            migrate_state = {"pending": migrated_from_file}
+
+            def _persist_session() -> None:
+                """TKT-0021: on every state -> ready transition, export the
+                wars session bytes, Fernet-encrypt them, upsert into
+                WaSession. If the worker booted in migration mode, also
+                delete the legacy `whatsapp.db` file + its sidecars now
+                that the encrypted blob is durably stored.
+
+                No-op when WATIFY_SESSION_ENCRYPTION_KEY is unset.
+                Failures are logged and swallowed so a transient write
+                error doesn't crash the worker.
+                """
+                key = settings.session_encryption_key
+                if not key:
+                    return
+                try:
+                    blob = wa.export_session()
+                except Exception as e:  # noqa: BLE001
+                    log.warning("wars: export_session failed (%s); skipping persist", e)
+                    return
+                try:
+                    from sqlmodel import Session
+
+                    from app import session_crypto as sc
+                    from app.db import engine
+
+                    with Session(engine) as db:
+                        sc.save_session(db, blob, key)
+                        db.commit()
+                    log.info(
+                        "wars: persisted encrypted session (plaintext=%dB)",
+                        len(blob),
+                    )
+                except Exception as e:  # noqa: BLE001
+                    log.exception("wars: save_session failed (%s); will retry on next ready", e)
+                    return
+                if migrate_state["pending"]:
+                    # On POSIX this unlinks immediately. On Windows wars
+                    # still holds open file handles, so unlink() typically
+                    # fails -- the next backend boot will clean up via
+                    # _build_wa's stale-file sweep. Either way, we clear
+                    # the flag because the encrypted blob is now durable.
+                    removed = cls._delete_legacy_wa_db_files()
+                    migrate_state["pending"] = False
+                    if removed:
+                        log.info(
+                            "wars: legacy whatsapp.db removed (%d files) -- encrypted mode is now the only at-rest store",
+                            removed,
+                        )
+                    else:
+                        log.info(
+                            "wars: legacy whatsapp.db still held by wars (Windows file lock); next boot's stale-file sweep will remove it"
+                        )
+
 
             @wa.on_qr
             def _on_qr(code: str) -> None:
@@ -184,8 +318,12 @@ class WaSingleton:
 
             @wa.on_connected
             def _on_connected() -> None:
+                # Callback fires on the wars Tokio thread (!= worker thread).
+                # Don't touch `wa` here -- PyO3 !Send panics. Queue the
+                # persist for the worker, which owns wa.
                 cls._set(state="ready", clear_qr=True, clear_error=True)
                 log.info("wars on_connected: state=ready")
+                cls._cmd_q.put(("persist", None))
 
             @wa.on_disconnect
             def _on_disconnect() -> None:
@@ -219,6 +357,7 @@ class WaSingleton:
                     log.info(
                         "wars: is_connected()==True, state=ready (callback fallback)"
                     )
+                    _persist_session()
             except Exception:  # noqa: BLE001
                 pass
 
@@ -238,6 +377,9 @@ class WaSingleton:
                 cls._set(state="disconnected", clear_qr=True)
                 return
             try:
+                if cmd == "persist":
+                    _persist_session()
+                    continue
                 if cmd == "connect":
                     wa.connect()
                     _check_connected()

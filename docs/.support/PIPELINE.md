@@ -5,21 +5,21 @@ This file is the single source of truth for "what runs next". Each loop iteratio
 ```yaml
 phase: ticketing
 agent: resolving_agent
-iteration: 37
-last_updated: 2026-05-18T17:51:26Z
-last_conversation: docs/.support/conversations/2026-05-18T175126Z-verification_agent-iter37.md
+iteration: 39
+last_updated: 2026-05-18T18:01:04Z
+last_conversation: docs/.support/conversations/2026-05-18T180104Z-verification_agent-iter39.md
 servers:
   backend_running: true
-  backend_pid: 49412
+  backend_pid: 5036
   backend_url: http://localhost:8000
   frontend_running: true
   frontend_pid: 42204
   frontend_url: http://localhost:3000
 tickets:
-  open: 10
+  open: 9
   inprogress: 0
   resolved: 0
-  verified: 10
+  verified: 11
 ticket_index:
   TKT-0001: verified P2 backend Flat error envelope
   TKT-0002: verified P1 frontend UX polish
@@ -41,15 +41,19 @@ ticket_index:
   TKT-0018: open P3 frontend SSE push of QR
   TKT-0019: verified P2 backend wars auto-cycle watchdog
   TKT-0020: verified P1 backend wars on_connected fallback
-  TKT-0021: open P1 backend Wire encrypted wars session (0011b)
+  TKT-0021: verified P1 backend Encrypted wars session wired end-to-end
 ```
 
 ## Next Action
-Highest-priority open: **TKT-0021** (P1 backend) -- wire the TKT-0011 infrastructure into WaSingleton. Auto-migrate `whatsapp.db` -> encrypted blob, boot from `from_bytes`, persist on `on_connected`. The live paired session is in `whatsapp.db` today; the migration will move it into `app.db` on next backend start when the operator sets `WATIFY_SESSION_ENCRYPTION_KEY`.
+9 open tickets remain, no P1 left. Suggested order:
+1. **TKT-0012** (P2 backend) -- RUST_LOG defaults silence wars protocol noise. One-line `os.environ.setdefault(...)` before the wars import.
+2. **TKT-0013** (P2 backend) -- lazy `_import_wars()` + `WarsNotInstalled` sentinel. Small refactor.
+3. TKT-0019-style auto-cycle / TKT-0008 toaster / TKT-0014 pair-code / TKT-0015 rate limit / TKT-0005 owner_phone -- bigger features.
+4. TKT-0016 / TKT-0017 / TKT-0018 / TKT-0006 -- P3 polish.
 
-Recommended for iter38: `agent: resolving_agent`, ticket **TKT-0021**.
+Recommended for iter40: `agent: resolving_agent`, ticket **TKT-0012** (RUST_LOG suppress).
 
-## History
-- (iter0..iter35 abbreviated -- see git history)
-- 2026-05-18T17:47:28Z iter36 resolving | TKT-0011 (0011a infra) shipped; TKT-0021 filed
-- 2026-05-18T17:51:26Z iter37 verification_agent -> ticketing | TKT-0011 VERIFIED + committed: smoke 6/6, 8 symbols importable, wa_session table created, .env.example documented, live wars still ready | log: docs/.support/conversations/2026-05-18T175126Z-verification_agent-iter37.md
+## History (latest only -- prior iterations in git history)
+- 2026-05-18T17:51:26Z iter37 verification | TKT-0011 VERIFIED + committed 90e3ca8
+- 2026-05-18T17:56:44Z iter38 resolving | TKT-0021 wiring shipped
+- 2026-05-18T18:01:04Z iter39 verification_agent -> ticketing | TKT-0021 VERIFIED end-to-end after fixing 2 in-field bugs (cross-thread persist + Windows file-lock cleanup): migration moved 499712B session from whatsapp.db to encrypted WaSession blob; second boot reads from blob and sweeps stale files; whatsapp.db family is now absent | log: docs/.support/conversations/2026-05-18T180104Z-verification_agent-iter39.md

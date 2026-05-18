@@ -54,6 +54,7 @@ target/
 # Logs and runtime state from dev servers (loop-managed)
 docs/.support/logs/*.log
 docs/.support/logs/*.pid
+docs/.support/logs/*.bak
 !docs/.support/logs/.gitkeep
 
 # Reference projects dropped under .support/ for the Ticketing Agent to
