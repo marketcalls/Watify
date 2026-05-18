@@ -103,3 +103,11 @@ Source: `REQUIREMENTS.md`. Items are dependency-ordered top to bottom. The Backe
 
 ## Done definition
 PLAN is done when every `B-NN` and `F-NN` is `[x]`, all open tickets are `verified`, and the dashboard at `/` answers correctly with the backend reachable.
+
+---
+
+## v1.1 -- Auth + landing + production install
+
+- **[ ] B-09** -- Single-user auth model + endpoints + middleware. Tracks TKT-0023, TKT-0024, TKT-0025.
+- **[ ] F-08** -- /login, /register, public /hero (move dashboard to /dashboard), auth-aware nav, route guards. Tracks TKT-0026, TKT-0027, TKT-0028, TKT-0029.
+- **[ ] I-05** -- `install/install.sh` + `install/update.sh` for Ubuntu + Cloudflare + Let's Encrypt. Tracks TKT-0030.

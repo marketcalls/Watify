@@ -53,6 +53,14 @@ class Settings(BaseSettings):
     rate_limit_test_to: str = "10/minute"
     rate_limit_send: str = "5/minute"
 
+    # TKT-0005: optional explicit override for the linked-device owner
+    # phone. wars 0.1.3 does not expose an `owner` accessor and we
+    # avoid sending a sentinel-to-self just to discover it. Passive
+    # learning via @wa.on_message covers most cases; this env is the
+    # fallback when the operator wants the Ready panel populated
+    # before any echo arrives.
+    owner_phone: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -317,6 +317,18 @@ class WaSingleton:
             wa, migrated_from_file = cls._build_wa()
             migrate_state = {"pending": migrated_from_file}
 
+            # TKT-0005: seed owner_phone from the env override if set.
+            # Passive learning via @wa.on_message can still overwrite it
+            # once a real echo arrives.
+            if settings.owner_phone:
+                from app.jid import normalize_phone, InvalidPhoneError
+
+                try:
+                    cls._set(owner_phone=normalize_phone(settings.owner_phone))
+                    log.info("wars: owner_phone seeded from WATIFY_OWNER_PHONE")
+                except InvalidPhoneError as e:
+                    log.warning("WATIFY_OWNER_PHONE invalid (%s); ignoring", e)
+
             def _persist_session() -> None:
                 """TKT-0021: on every state -> ready transition, export the
                 wars session bytes, Fernet-encrypt them, upsert into
@@ -408,6 +420,34 @@ class WaSingleton:
                     return
                 cls._set(state="disconnected", clear_qr=True)
                 log.info("wars on_disconnect: state=disconnected")
+
+            @wa.on_message
+            def _on_message(msg: Any) -> None:
+                # TKT-0005: wars 0.1.3 has no owner accessor on the
+                # WhatsApp object. The cheapest way to learn the linked
+                # device's own number is to watch echoes of the user's
+                # own outgoing messages -- they arrive with
+                # is_from_me=True and `sender = <our-jid>`. We only
+                # learn once; the explicit settings.owner_phone always
+                # wins if set.
+                if cls.snapshot().owner_phone:
+                    return
+                try:
+                    if not getattr(msg, "is_from_me", False):
+                        return
+                    sender = getattr(msg, "sender", "") or ""
+                    # 1:1 JIDs look like "<digits>@s.whatsapp.net"; group
+                    # senders end in "@g.us" and are ignored.
+                    if "@s.whatsapp.net" not in sender:
+                        return
+                    digits = sender.split("@", 1)[0]
+                    # Strip any device suffix like "12345:67".
+                    digits = digits.split(":", 1)[0]
+                    if digits.isdigit() and len(digits) >= 6:
+                        cls._set(owner_phone=digits)
+                        log.info("wars: learned owner_phone passively from on_message echo")
+                except Exception as e:  # noqa: BLE001
+                    log.debug("on_message owner-learning failed: %s", e)
         except WarsNotInstalled as e:
             # TKT-0013: wars wheel missing or failed to build. Surface
             # the friendly install hint via state.last_error; rest of

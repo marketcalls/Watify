@@ -49,9 +49,82 @@ A single-user WhatsApp notification service for sending messages to curated frie
 - F6.3 — Treat all phone numbers as sensitive; no logging of full numbers in conversation logs.
 
 ## Non-functional
-- Single-user, runs locally. No auth UI.
-- Backend on `http://localhost:8000`, frontend on `http://localhost:3000`.
+- **Single-user**. Only one human operates the app. Exactly one User row in `app.db`.
+- Dev: backend on `http://localhost:8000`, frontend on `http://localhost:3000`.
+- Production (v1.1): one Ubuntu VM, custom domain behind Cloudflare with Let's Encrypt origin certs.
 - Dev servers stay running in the background while the loop iterates so the Verification Agent can hit them via Chrome MCP.
+
+## Auth + multi-page surface (v1.1)
+
+**A1. Public hero page** at `/` (no auth). Marketing copy: what Watify does, the 20-cap, 3-30s delay, screenshots/diagrams if available. CTAs to `/login` and `/register`.
+
+**A2. Register-once-lock**.
+- `POST /api/auth/register` accepts `{username, password}` ONCE. The first successful registration creates the singleton User row and marks them as the admin (the only role; this app has no others).
+- Subsequent calls to `/register` return **409** `{"error":"registration_closed","detail":"this app already has its single user"}`.
+- Password rules: minimum 12 characters, no other complexity rules (operator chooses their own strength).
+- Hashing: **argon2** (via `passlib[argon2]` or `argon2-cffi` directly). Never store plaintext.
+
+**A3. Login**.
+- `POST /api/auth/login` accepts `{username, password}`. On success: returns a JWT (HS256) and sets it as an `httpOnly`, `Secure` (production), `SameSite=Lax` cookie named `watify_session`.
+- Token TTL: 15 minutes access + a 7-day refresh token (separate cookie `watify_refresh`). Both server-rotate on refresh.
+- `POST /api/auth/refresh` issues a new access token if the refresh cookie is valid.
+- `POST /api/auth/logout` clears both cookies and rotates the user's refresh-token secret (so any stolen token is invalidated).
+- `GET /api/auth/me` returns `{username, created_at}` when authed.
+
+**A4. Auth middleware** (server-side gate).
+- Every `/api/*` request must be authed EXCEPT the allowlist: `/api/health`, `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`. Missing/invalid token returns 401 with the flat envelope from TKT-0001.
+- Auth middleware runs BEFORE the rate-limit middleware so 429s never reveal token status.
+
+**A5. Rate limits on auth**.
+- `POST /api/auth/register`: hard `3/minute` per IP (any more is bot pressure).
+- `POST /api/auth/login`: `5/minute` per IP, with an additional sliding lockout: 5 consecutive failures in 10 minutes -> 15-minute lockout for that IP. Surface as 429 with `Retry-After`.
+- `POST /api/auth/refresh`: `30/minute` per IP.
+
+**A6. Frontend routes**.
+- Public: `/` (hero), `/login`, `/register`.
+- Protected: `/dashboard`, `/connect`, `/groups`, `/send`, `/history` -- redirect to `/login` when not authed.
+- TopNav swaps based on auth state: `[Watify] Login Register` vs `[Watify] Dashboard Connect Groups Send History Logout`.
+
+**A7. Token storage**.
+- HttpOnly cookie pair (`watify_session` + `watify_refresh`) -- not localStorage. SameSite=Lax. Secure flag in production.
+- API base URL on the client uses `credentials: "include"` so the cookies travel.
+
+**A8. Single-user enforcement at multiple layers**.
+- Database: `User` table has a `UNIQUE(role='admin')` partial index -- only one admin row possible.
+- Backend: `/register` checks `if any(session.exec(select(User))): return 409`.
+- Frontend: when an authed user hits `/register` it 302s to `/dashboard`.
+
+## Production install (v1.1)
+
+**P1. Install script at `install/install.sh`** (Ubuntu 22.04 / 24.04), mirroring the Dittot pattern:
+- Re-run safe (preserves existing `.env` SECRET_KEY + Fernet session key + DB).
+- Prompts for custom domain (apex + optional `www.`), validates format.
+- Prompts for Let's Encrypt email.
+- Opens UFW 80/443.
+- Installs system deps: git, curl, build-essential, python3-dev, nodejs 20, nginx, certbot.
+- Installs `uv` for Python; `npm` for Node.
+- Clones the repo to `/var/www/watify`.
+- Generates `backend/.env` with `WATIFY_*` keys (auto-generates SECRET_KEY, JWT secret, Fernet session key on fresh install; preserves on re-run).
+- `uv sync` in backend, `npm install && npm run build` in frontend.
+- Creates two systemd units:
+  - `watify.service` -- FastAPI/uvicorn via unix socket at `/run/watify/watify.sock`, 1 worker (the wars singleton is one-process-per-host).
+  - `watify-frontend.service` -- `next start -H 127.0.0.1 -p 3000`.
+- Writes Nginx config at `/etc/nginx/sites-available/watify`:
+  - Cloudflare-aware: `map $http_cf_connecting_ip $watify_real_ip ...` so backend rate-limit middleware and Nginx auth-zone both see the real client IP.
+  - Strict auth zone: `limit_req_zone $watify_real_ip zone=watify_login:10m rate=5r/m;` matched on `/api/auth/login` and `/api/auth/register` with `burst=3 nodelay`.
+  - Connection limit: `limit_conn watify_conn 50`.
+  - Standard security headers (X-Frame-Options, X-Content-Type-Options, Referrer-Policy).
+  - Gzip on for text/json/js/svg.
+  - `client_max_body_size 10M`.
+  - Frontend upstream `127.0.0.1:3000`, backend upstream unix socket.
+  - SSL via certbot --nginx; HSTS snippet at `/etc/nginx/snippets/ssl-security.conf`; auto-renewal cron.
+- Logrotate config at `/etc/logrotate.d/watify` rotating systemd stdout (100MB, keep 3).
+- Permissions: `www-data:www-data` on `/var/www/watify` + `/var/log/watify`; `chmod 600` on `.env` and `app.db`.
+- Health-checks each service after start and dumps `journalctl -n 20` on failure.
+
+**P2. Sibling `install/update.sh`** -- `git pull`, `uv sync`, `npm install && npm run build`, restart both units. Re-runnable.
+
+**P3. SQLite as the only datastore** -- explicitly NO Postgres, Redis, QuestDB. `app.db` lives at `/var/www/watify/backend/app.db`; nightly backups to `/var/lib/watify-backups/` (keep 30 days).
 
 ## Security & secrets
 

@@ -36,10 +36,14 @@ class WaSendResult(BaseModel):
 
 def _snapshot_to_dto() -> WaState:
     snap = WaSingleton.snapshot()
+    # TKT-0005: surface owner_phone in redacted form so it can be
+    # displayed safely in the Ready panel (and in screenshots) without
+    # exposing the full number. The full digits stay server-side.
+    owner_display = redact_phone(snap.owner_phone) if snap.owner_phone else None
     return WaState(
         state=snap.state,
         qr_data_url=snap.qr_data_url,
-        owner_phone=snap.owner_phone,
+        owner_phone=owner_display,
         last_error=snap.last_error,
         last_event_at=snap.last_event_at,
     )
