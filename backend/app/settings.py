@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     app_secret: str = ""
     api_key: str = ""
 
+    # TKT-0024: JWT lifetimes. Access is short so a stolen token expires
+    # quickly; refresh is long but its signing key mixes in
+    # user.refresh_secret which rotates on logout, killing all extant
+    # refresh tokens in one move.
+    jwt_access_minutes: int = 15
+    jwt_refresh_days: int = 7
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -8,6 +8,7 @@ dependencies = [
     "cryptography>=48.0.0",
     "fastapi>=0.136.1",
     "pydantic-settings>=2.14.1",
+    "pyjwt>=2.12.1",
     "slowapi>=0.1.9",
     "sqlmodel>=0.0.38",
     "tzlocal>=5.3.1",

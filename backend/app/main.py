@@ -13,7 +13,7 @@ from app.identity import fingerprint as app_fingerprint
 from app.identity import is_configured as identity_configured
 from app.limiter import limiter, rate_limit_handler
 from app.logging_setup import configure as configure_logging
-from app.routers import groups, jobs, whatsapp
+from app.routers import auth, groups, jobs, whatsapp
 from app.scheduler import shutdown as scheduler_shutdown
 from app.scheduler import start as scheduler_start
 from app.settings import settings
@@ -100,6 +100,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+app.include_router(auth.router)
 app.include_router(groups.router)
 app.include_router(whatsapp.router)
 app.include_router(jobs.router)
