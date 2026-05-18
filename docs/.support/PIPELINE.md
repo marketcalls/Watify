@@ -4,25 +4,25 @@ This file is the single source of truth for "what runs next". Each loop iteratio
 
 ```yaml
 phase: ticketing
-agent: resolving_agent
-iteration: 55
-last_updated: 2026-05-18T19:22:23Z
-last_conversation: docs/.support/conversations/2026-05-18T192223Z-verification_agent-iter55.md
+agent: ticketing_agent
+iteration: 57
+last_updated: 2026-05-18T19:36:30Z
+last_conversation: docs/.support/conversations/2026-05-18T193508Z-verification_agent-iter57.md
 servers:
   backend_running: true
-  backend_pid: 17608
+  backend_pid: 20252
   backend_url: http://localhost:8000
   frontend_running: true
   frontend_pid: 42204
   frontend_url: http://localhost:3000
 tickets:
-  open: 14
+  open: 13
   inprogress: 0
   resolved: 0
-  verified: 18
+  verified: 19
 ticket_index:
   TKT-0024: verified P1 backend Auth endpoints + JWT cookies + auth rate limits
-  TKT-0025: open P1 backend Auth middleware
+  TKT-0025: verified P1 backend Auth middleware
   TKT-0026: open P1 frontend /login + /register pages
   TKT-0027: open P2 frontend Public hero page; move dashboard to /dashboard
   TKT-0028: open P2 frontend Auth-aware TopNav
@@ -40,9 +40,9 @@ ticket_index:
 ```
 
 ## Next Action
-**Resolving Agent** picks **TKT-0025** (P1 backend) -- auth middleware. Promote the temp inline cookie-auth in `/api/auth/me` to a proper Starlette `BaseHTTPMiddleware` that runs BEFORE slowapi, enforces auth on every `/api/*` except the allowlist (`/api/health`, `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, OPTIONS preflight), and returns 401 with the flat envelope on failure.
+**Ticketing Agent** runs the standard re-triage + security pass per AGENTS.md, then queues the next Resolving target. The remaining P1 milestone tickets (priority order): **TKT-0026** (frontend /login + /register pages -- now unblocked because the backend auth gate is verified), then **TKT-0030** (install/install.sh + update.sh for Ubuntu + Cloudflare + Let's Encrypt). The Ticketing Agent should also confirm no new tickets are needed from the auth middleware ship (no leaks, no missing controls). Frontend `/api/auth/me` cookie-auth in the dashboard `useUser()` hook should still work because login now sets `watify_session`; spot-check by hitting `http://localhost:3000` and watching the network panel.
 
 ## History (latest only)
-- 2026-05-18T19:10:00Z iter53 verification | TKT-0031 VERIFIED + committed 915d305
-- 2026-05-18T19:14:51Z iter54 resolving | TKT-0024 auth endpoints
 - 2026-05-18T19:22:23Z iter55 verification_agent -> ticketing | TKT-0024 VERIFIED + committed: cookies httpOnly+SameSite=lax, typ access/refresh differentiation honored, 503 auth_not_configured on all 5 when app_secret unset, non-auth endpoints unaffected | log: docs/.support/conversations/2026-05-18T192223Z-verification_agent-iter55.md
+- 2026-05-18T19:45:00Z iter56 resolving_agent -> verification | TKT-0025 RESOLVED: app/auth_middleware.py (Starlette BaseHTTPMiddleware) + main.py wiring AFTER CORS so it sits outermost; bypass matrix non-/api, app_secret-empty (dev), OPTIONS, allowlist; 401 flat envelope; smoke passed in both configured + dev modes; persisted fresh app_secret + api_key in backend/.env until install.sh ships | log: docs/.support/conversations/2026-05-18T192734Z-resolving_agent-iter56.md
+- 2026-05-18T19:36:30Z iter57 verification_agent -> ticketing | TKT-0025 VERIFIED + committed: (a) health 200 + fingerprint 6cf4a507, (b) /api/groups+jobs+wa/state no-cookie 401, (c) login 200 + both httpOnly cookies, (d) protected with cookie 200, (e) bad cookie 401, (f) 10x rapid no-cookie hits all 401 never 429 -> outermost confirmed; bonus: refresh-token-as-access rejected via typ discriminator; dev-mode: /api/groups 200 bypass, /api/auth/login 503 | log: docs/.support/conversations/2026-05-18T193508Z-verification_agent-iter57.md

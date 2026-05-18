@@ -8,6 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
+from app.auth_middleware import AuthMiddleware
 from app.db import init_db
 from app.identity import fingerprint as app_fingerprint
 from app.identity import is_configured as identity_configured
@@ -59,6 +60,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# TKT-0025: AuthMiddleware registered AFTER CORS so it sits OUTERMOST
+# in Starlette's middleware stack (FastAPI applies middleware in
+# reverse order of add_middleware). Auth gate runs first on every
+# request; slowapi decorators wrap the handler itself, so rate limits
+# stay INSIDE the gate -- a 429 can never disclose token validity.
+app.add_middleware(AuthMiddleware)
 
 
 @app.exception_handler(StarletteHTTPException)
