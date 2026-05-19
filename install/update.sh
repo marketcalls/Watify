@@ -20,6 +20,7 @@ ok()   { echo "${C_GREEN}    [ok]${C_RESET} $*"; }
 die()  { echo "${C_RED}    [error]${C_RESET} $*" >&2; exit 1; }
 
 APP_ROOT=/var/www/watify
+UV_PYTHON_DIR=/opt/uv-python
 
 [ "$(id -u)" -eq 0 ] || die "must be run as root (try: sudo $0)"
 [ -d "$APP_ROOT/.git" ] || die "no Watify install at $APP_ROOT -- run install.sh first"
@@ -48,7 +49,15 @@ if [ ! -f /usr/local/bin/uv ] || [ -L /usr/local/bin/uv ]; then
     cp -f "$UV_BIN" /usr/local/bin/uv
     chmod 0755 /usr/local/bin/uv
 fi
-uv sync --quiet
+# Self-heal: make sure uv's managed Python lives under /opt (outside
+# /root) so the service's www-data user can traverse the venv symlink
+# chain. Harmless no-op if already installed.
+mkdir -p "$UV_PYTHON_DIR"
+PY_REQ=$(awk -F'"' '/^requires-python/ {gsub(/[<>=! ]/, "", $2); print $2; exit}' "$APP_ROOT/backend/pyproject.toml" 2>/dev/null || true)
+[ -z "$PY_REQ" ] && PY_REQ=3.14
+UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" /usr/local/bin/uv python install "$PY_REQ" >/dev/null
+chmod -R a+rX "$UV_PYTHON_DIR"
+UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" UV_CACHE_DIR="$APP_ROOT/.cache/uv" uv sync --quiet
 ok "uv sync complete"
 
 step "frontend build"

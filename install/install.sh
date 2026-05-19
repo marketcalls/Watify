@@ -39,6 +39,10 @@ APP_ROOT=/var/www/watify
 LOG_DIR=/var/log/watify
 BACKUP_DIR=/var/lib/watify-backups
 RUN_DIR=/run/watify
+# uv-managed Python install root. MUST sit outside /root so that
+# `chmod 700 /root` (Ubuntu default) does not block www-data from
+# resolving the venv's python3 symlink chain at service start.
+UV_PYTHON_DIR=/opt/uv-python
 REPO_URL=https://github.com/marketcalls/Watify.git
 SVC_USER=www-data
 SVC_GROUP=www-data
@@ -167,6 +171,20 @@ else
     ok "repo cloned to $APP_ROOT"
 fi
 
+# Python interpreter for the service. We pin uv's python install dir
+# to $UV_PYTHON_DIR (default /opt/uv-python) because uv's default
+# (~/.local/share/uv/python under root's home) lives behind /root,
+# which is mode 0700 on Ubuntu -- the service runs as www-data and
+# cannot traverse /root, so the venv's python3 symlink chain fails
+# to canonicalize at boot. /opt is world-traversable and outside
+# ProtectHome's scope.
+PY_REQ=$(awk -F'"' '/^requires-python/ {gsub(/[<>=! ]/, "", $2); print $2; exit}' "$APP_ROOT/backend/pyproject.toml" 2>/dev/null || true)
+[ -z "$PY_REQ" ] && PY_REQ=3.14
+mkdir -p "$UV_PYTHON_DIR"
+UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" /usr/local/bin/uv python install "$PY_REQ" >/dev/null
+chmod -R a+rX "$UV_PYTHON_DIR"
+ok "python $PY_REQ installed under $UV_PYTHON_DIR"
+
 # ------------------------------------------------------------------
 # Step 3: backend .env
 # ------------------------------------------------------------------
@@ -256,7 +274,11 @@ ok "frontend/.env.production written"
 step "Step 4/9 -- build"
 
 cd "$APP_ROOT/backend"
-uv sync --quiet
+# Pin both the Python install dir and the cache dir to the same paths
+# the systemd unit uses at runtime. Re-runs on an already-built venv
+# stay no-op fast.
+UV_PYTHON_INSTALL_DIR="$UV_PYTHON_DIR" UV_CACHE_DIR="$APP_ROOT/.cache/uv" \
+    uv sync --quiet
 ok "backend dependencies synced"
 
 cd "$APP_ROOT/frontend"
@@ -309,9 +331,12 @@ WorkingDirectory=$APP_ROOT/backend
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 # ProtectSystem=strict + ProtectHome=true block the default home/cache
 # locations uv would otherwise pick (e.g. /var/www/.cache/uv when the
-# service user is www-data). Pin the cache to a path inside the app
-# root, which IS in ReadWritePaths below.
+# service user is www-data, or /root/.local/share/uv/python under
+# root's home). Pin both to paths the service can reach: the cache
+# inside the app root (already in ReadWritePaths) and the Python
+# interpreter under /opt (world-traversable, outside ProtectHome).
 Environment=UV_CACHE_DIR=$APP_ROOT/.cache/uv
+Environment=UV_PYTHON_INSTALL_DIR=$UV_PYTHON_DIR
 RuntimeDirectory=watify
 RuntimeDirectoryMode=0770
 ExecStart=/usr/local/bin/uv run uvicorn app.main:app --uds $RUN_DIR/watify.sock --workers 1 --log-level warning
@@ -419,6 +444,7 @@ server {
     # CSP intentionally omitted because Next.js inlines style + we use
     # a theme-init dangerouslySetInnerHTML script that would need a
     # per-request nonce -- file a follow-on ticket if CSP is wanted).
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
@@ -507,14 +533,12 @@ if ! certbot --nginx "${CERTBOT_DOMAINS[@]}" \
     warn "certbot failed -- you can re-run it manually: certbot --nginx ${CERTBOT_DOMAINS[*]} --email $LE_EMAIL --agree-tos"
 fi
 
-cat > /etc/nginx/snippets/ssl-security.conf <<'EOF'
-ssl_protocols TLSv1.2 TLSv1.3;
-ssl_prefer_server_ciphers on;
-ssl_session_cache shared:SSL:10m;
-ssl_session_timeout 1d;
-ssl_session_tickets off;
-add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-EOF
+# Drop a pre-1.1 ssl-security.conf snippet if a prior installer ever
+# wrote one. Certbot already manages ssl_protocols / ssl_session_* /
+# ssl_ciphers via /etc/letsencrypt/options-ssl-nginx.conf; duplicating
+# them in a snippet causes "directive is duplicate" emerg on reload.
+# HSTS now lives in the main server block above.
+rm -f /etc/nginx/snippets/ssl-security.conf
 
 # Renewal cron (certbot ships its own systemd timer on Ubuntu, but a
 # belt-and-braces cron entry is harmless).
