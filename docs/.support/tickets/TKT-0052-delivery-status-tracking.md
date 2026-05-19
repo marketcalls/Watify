@@ -1,14 +1,15 @@
 ---
 id: TKT-0052
 title: Track WhatsApp delivery / read receipt and surface in /connect + /history
-status: open
+status: closed-deferred
 priority: P3
 area: backend+frontend
-related_tickets: TKT-0038, TKT-0051
+related_tickets: TKT-0038, TKT-0051, TKT-0058
 created: 2026-05-19T03:10:00Z
-updated: 2026-05-19T03:10:00Z
+updated: 2026-05-19T03:40:00Z
 created_by: resolving_agent
 filed_via: user_request
+deferred_to: TKT-0058
 ---
 
 ## Summary
@@ -26,3 +27,4 @@ Operator: "cant i get the delivery status and say message delivered?" Currently 
 
 ## Resolution history
 - 2026-05-19T03:10:00Z -- filed per operator request.
+- 2026-05-19T03:40:00Z -- closed-deferred by ticketing_agent (iter106). Reason: shipping this in v1.1 requires a schema migration (`SendAttempt` needs `delivery_status` + `delivered_at` + `read_at` columns) but the project does not run Alembic; `init_db` calls `SQLModel.metadata.create_all` which adds tables, not columns. The only v1.1-compatible path is to drop `send_attempt` / `send_job` and rebuild, which would lose send history -- not acceptable absent an explicit operator directive. Re-filed as TKT-0058 (v1.2) which packages the migration-tool decision with the wars `on_message_status` wiring.

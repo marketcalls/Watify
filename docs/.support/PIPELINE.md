@@ -3,11 +3,11 @@
 This file is the single source of truth for "what runs next". Each loop iteration reads this, executes one chunk as the named agent, then updates this file.
 
 ```yaml
-phase: ticketing
-agent: ticketing_agent
-iteration: 105
-last_updated: 2026-05-19T03:35:00Z
-last_conversation: docs/.support/conversations/2026-05-19T033500Z-resolving_agent-iter105.md
+phase: done
+agent: verification_agent
+iteration: 107
+last_updated: 2026-05-19T03:55:00Z
+last_conversation: docs/.support/conversations/2026-05-19T035500Z-resolving_agent-iter107.md
 servers:
   backend_running: true
   backend_pid: 29768
@@ -19,7 +19,12 @@ tickets:
   open: 1
   inprogress: 0
   resolved: 0
-  verified: 56
+  verified: 57
+  closed_deferred: 1
+notes:
+  v11_status: shipped -- all v1.1 tickets verified; queue empty.
+  v12_followups:
+    - TKT-0058: delivery/read receipt tracking + schema migration tool decision (deferred from TKT-0052).
 ticket_index:
   TKT-0014: verified P2 backend Pair-code mode (backend slice)
   TKT-0024: verified P1 backend Auth endpoints + JWT cookies + auth rate limits
@@ -61,22 +66,20 @@ ticket_index:
   TKT-0049: verified P3 frontend Theme toggle should use sun/moon icons instead of text
   TKT-0050: verified P0 frontend Disconnect re-flips back to connected on next poll
   TKT-0051: verified P3 frontend Test message toast copy + status semantics
-  TKT-0052: open P3 backend+frontend Delivery status tracking (deferred -- needs wars on_message_status + schema migration)
+  TKT-0052: closed-deferred P3 backend+frontend Delivery status tracking -- re-filed as TKT-0058 for v1.2
   TKT-0053: verified P2 backend+frontend Unlink action that wipes session blob + legacy whatsapp.db files
   TKT-0054: verified P2 infra Security headers grade A (Permissions-Policy, COOP, CORP, X-Permitted-Cross-Domain-Policies)
   TKT-0055: verified P3 frontend Test message timestamp in local time, not UTC
   TKT-0056: verified P1 frontend Disconnect = full unlink via styled modal (no window.confirm, no soft disconnect)
   TKT-0057: verified P2 frontend Theme: light + dark only, dark by default, localStorage persisted (no system mode)
+  TKT-0058: open P3 backend+frontend v1.2 delivery/read tracking + schema migration tool (deferred from TKT-0052)
+  TKT-0059: verified P1 frontend /connect handleManualConnect surfaced fetch rejection as Next.js Runtime TypeError overlay
 ```
 
 ## Next Action
-**Ticketing Agent** runs a security spot pass over iter105 (TKT-0056 modal diff). With TKT-0052 deferred (needs wars `@on_message_status` callback + SendAttempt schema migration; project does not run Alembic and `SQLModel.metadata.create_all` will not add columns to existing tables), the realistic options are:
-- (a) treat TKT-0052 as designed-not-implemented for v1.1, file a v1.2 follow-up that bundles the migration tool decision, and flip `phase: done`.
-- (b) commit to a destructive `app.db` schema reset path (drop `send_attempt` / `send_job` then `create_all`) so the columns land. Loses send history.
+**Loop exit -- phase: done.** Per AGENTS.md "The loop stops when `PIPELINE.md.phase == done`." iter106 took option (a): closed TKT-0052 as deferred (would need a migration-tool decision that is out of scope for v1.1) and re-filed it as TKT-0058 against v1.2. v1.1 queue is empty.
 
-Pick (a) unless the operator explicitly wants the migration risk. iter106 should propose the v1.2 follow-up plan and flip the pipeline phase accordingly.
-
-**Earlier loop-exit state (preserved for reference):** Loop exit -- phase: done. Per AGENTS.md "The loop stops when `PIPELINE.md.phase == done`." All 46 tickets verified, zero open. Operator directive in iter100 ("fix all the open or pending tickets and ensure it is verified") cleared the queue.
+The loop only resumes if the operator files a new ticket or directs a v1.2 milestone start. v1.2 entry point: TKT-0058 (delivery/read receipt tracking + schema migration tool decision).
 
 Out-of-scope items deliberately kept off the queue (file fresh tickets to revisit any of these):
 - TKT-0018 was closed as designed-not-implemented (current SWR polling is good enough; SSE infra adds cost without measurable UX gain).
@@ -146,3 +149,5 @@ Out of scope: hiding the login page's footer "Create the admin account" link. Op
 - 2026-05-19T03:11:44Z iter103 resolving+verification (bundled, operator directive, commit 753791a) | TKT-0053 Unlink action (WaSingleton.unlink stops worker + clears wa_session blob + sweeps legacy whatsapp.db files; POST /api/wa/unlink route; wa.unlink helper; useWaState.unlink; ReadyPanel separate Unlink button confirmed via window.confirm). TKT-0055 test message timestamp in local time (toLocaleString instead of toISOString + " UTC"); history page already used toLocaleString | log: docs/.support/conversations/2026-05-19T031144Z-resolving_agent-iter103.md
 - 2026-05-19T03:21:38Z iter104 ticketing | iter103 diff security spot pass clean; queued TKT-0052 (delivery status tracking) noting schema-migration constraint (project doesn't run Alembic; create_all only adds tables, not columns) | log: docs/.support/conversations/2026-05-19T032138Z-ticketing_agent-iter104.md
 - 2026-05-19T03:35:00Z iter105 resolving+verification (bundled, operator directive) | TKT-0056 Disconnect = full unlink via styled modal: removed soft Disconnect path entirely, added DisconnectModal (role=dialog, aria-modal, aria-labelledby, backdrop blur, "Disconnecting..." progress) replacing window.confirm; single red-outlined Disconnect button on ReadyPanel calls requestDisconnect() -> confirmDisconnect() -> hook.unlink(). TKT-0057 theme cleanup: removed system mode + matchMedia fallback; Theme narrowed to "light" | "dark"; dark is the default; inline no-flash script shortened to one-line localStorage check; SystemIcon dropped; ThemeToggle.cycle -> toggle; tsc --noEmit exit 0; curl / /connect /login all 200 | log: docs/.support/conversations/2026-05-19T033500Z-resolving_agent-iter105.md
+- 2026-05-19T03:40:00Z iter106 ticketing -> DONE | security spot pass over iter105 commit 82731df clean (dangerouslySetInnerHTML is the pre-existing layout.tsx no-flash THEME_INIT_SCRIPT const; no eval/cookie/secret-localStorage/innerHTML=/console.log/hex/plaintext-phone hits; .env + app.db + whatsapp.db absent from git ls-files); TKT-0052 closed-deferred (v1.1 cannot ship without a real migration tool decision) and re-filed as TKT-0058 for v1.2 (delivery/read receipt tracking + Alembic-or-equivalent decision). v1.1 queue empty; phase=done; loop exits | log: docs/.support/conversations/2026-05-19T034000Z-ticketing_agent-iter106.md
+- 2026-05-19T03:55:00Z iter107 resolving+verification (bundled, operator bug report -> hotfix) | TKT-0059 fix: handleManualConnect + handleModeChange in /connect/page.tsx now try/catch the `await connect()` and toast.error instead of letting fetch-level rejections bubble to React and surface as Next.js dev-overlay "Runtime TypeError: Failed to fetch". Diagnosis: backend healthy throughout (logs show repeated /api/wa/connect 200, on_qr firing, state polls 200); the TypeError was a browser-side fetch rejection (extension block / transient abort / dev-reload race), made user-visible only because the click handler had no catch. tsc --noEmit exit 0; curl /connect 200; phase returns to DONE | log: docs/.support/conversations/2026-05-19T035500Z-resolving_agent-iter107.md

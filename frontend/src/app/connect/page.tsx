@@ -96,7 +96,19 @@ function ConnectInner() {
     if (typeof window !== "undefined") {
       sessionStorage.setItem(AUTO_FLAG, "1");
     }
-    await connect();
+    // TKT-0059: surface fetch failures via the toaster instead of
+    // letting the rejection bubble up as an unhandled "Failed to fetch"
+    // overlay. Network blips, browser-extension blocks, and aborted
+    // requests all land here.
+    setBusy(true);
+    try {
+      await connect();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "network error";
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handlePairCodeConnect() {
@@ -143,6 +155,11 @@ function ConnectInner() {
       setBusy(true);
       try {
         await connect();
+      } catch (e) {
+        // TKT-0059: same fix as handleManualConnect -- toast network
+        // failures rather than bubbling to the Next.js error overlay.
+        const msg = e instanceof Error ? e.message : "network error";
+        toast.error(msg);
       } finally {
         setBusy(false);
       }
