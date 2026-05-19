@@ -269,7 +269,7 @@ ok "frontend production build complete"
 # ------------------------------------------------------------------
 step "Step 5/9 -- directories and permissions"
 
-mkdir -p "$LOG_DIR" "$BACKUP_DIR" "$RUN_DIR"
+mkdir -p "$LOG_DIR" "$BACKUP_DIR" "$RUN_DIR" "$APP_ROOT/.cache/uv"
 chown -R "$SVC_USER:$SVC_GROUP" "$APP_ROOT" "$LOG_DIR" "$BACKUP_DIR" "$RUN_DIR"
 chmod 600 "$APP_ROOT/backend/.env"
 [ -f "$APP_ROOT/backend/app.db" ] && chmod 600 "$APP_ROOT/backend/app.db"
@@ -307,6 +307,11 @@ User=$SVC_USER
 Group=$SVC_GROUP
 WorkingDirectory=$APP_ROOT/backend
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# ProtectSystem=strict + ProtectHome=true block the default home/cache
+# locations uv would otherwise pick (e.g. /var/www/.cache/uv when the
+# service user is www-data). Pin the cache to a path inside the app
+# root, which IS in ReadWritePaths below.
+Environment=UV_CACHE_DIR=$APP_ROOT/.cache/uv
 RuntimeDirectory=watify
 RuntimeDirectoryMode=0770
 ExecStart=/usr/local/bin/uv run uvicorn app.main:app --uds $RUN_DIR/watify.sock --workers 1 --log-level warning
