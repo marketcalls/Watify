@@ -24,6 +24,13 @@ class RegistrationClosed(RuntimeError):
     """Raised when `create_admin` is called and a user already exists."""
 
 
+class UsernameTaken(RuntimeError):
+    """Raised when a profile update tries to rename to an already-used
+    name. In single-user mode this only fires if the new name equals the
+    sentinel of some future second row -- the UNIQUE index would also
+    catch it, but raising here lets the router return a clean 409."""
+
+
 def count_users(db: Session) -> int:
     return int(db.exec(select(func.count()).select_from(User)).one())
 
@@ -89,3 +96,30 @@ def rotate_refresh_secret(db: Session, user: User) -> None:
 def touch_last_login(db: Session, user: User) -> None:
     user.last_login_at = datetime.now(timezone.utc)
     db.add(user)
+
+
+def update_credentials(
+    db: Session,
+    user: User,
+    *,
+    new_username: str | None,
+    new_password: str | None,
+) -> User:
+    """Apply username and/or password changes to the singleton user and
+    rotate the refresh secret. Caller commits.
+
+    The refresh-secret rotation invalidates every extant refresh token,
+    so any other browser the operator left signed in will be forced to
+    re-authenticate the next time its access token expires. This is the
+    desired behavior on a credential change.
+    """
+    if new_username is not None:
+        clash = get_user(db, new_username)
+        if clash is not None and clash.id != user.id:
+            raise UsernameTaken("username already in use")
+        user.username = new_username
+    if new_password is not None:
+        user.password_hash = hash_password(new_password)
+    user.refresh_secret = generate_refresh_secret()
+    db.add(user)
+    return user

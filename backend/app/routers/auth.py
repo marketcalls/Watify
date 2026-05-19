@@ -66,6 +66,18 @@ class AuthAck(BaseModel):
     username: str
 
 
+class ProfileUpdateRequest(BaseModel):
+    """At least one of `new_username` / `new_password` must be set; the
+    router rejects the all-empty case with 422. `current_password` is
+    always required -- the session cookie alone is not enough to change
+    credentials (defence against an unattended browser).
+    """
+
+    current_password: str = Field(min_length=1, max_length=200)
+    new_username: str | None = Field(default=None, min_length=1, max_length=80)
+    new_password: str | None = Field(default=None, min_length=12, max_length=200)
+
+
 # ---- Helpers ----------------------------------------------------------
 
 
@@ -262,3 +274,77 @@ def me(
     _require_configured()
     user = _current_user_or_401(watify_session, db)
     return MeResponse(username=user.username, created_at=user.created_at)
+
+
+@router.patch("/profile")
+@limiter.limit("5/minute")
+def update_profile(
+    request: Request,
+    body: ProfileUpdateRequest,
+    response: Response,
+    watify_session: str | None = Cookie(default=None),
+    db: Session = Depends(get_session),
+) -> AuthAck:
+    """Change the username and/or password of the singleton admin.
+
+    Requires the current password regardless of the active session so a
+    walk-up attacker on an unattended browser cannot change credentials.
+    On success: rotates `refresh_secret` (invalidating all other refresh
+    tokens) and re-issues fresh access + refresh cookies for the current
+    response so the operator stays signed in.
+    """
+    _require_configured()
+    user = _current_user_or_401(watify_session, db)
+
+    new_username = body.new_username.strip() if body.new_username is not None else None
+    new_password = body.new_password if body.new_password is not None else None
+
+    if new_username is None and new_password is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "no_changes",
+                "detail": "provide new_username or new_password",
+            },
+        )
+    if new_username is not None and len(new_username) == 0:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_username", "detail": "username cannot be blank"},
+        )
+
+    # Verify current password BEFORE applying anything. Re-fetch via
+    # the username path so we exercise the same code path as login and
+    # so a corrupted hash surfaces consistently.
+    verified = auth_repo.verify_credentials(db, user.username, body.current_password)
+    if verified is None or verified.id != user.id:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "invalid_credentials", "detail": "current password is wrong"},
+        )
+
+    # No-op early-out so a user who submits their existing values does
+    # not pay the rehash + cookie reissue cost.
+    same_username = new_username is None or new_username == user.username
+    if same_username and new_password is None:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "no_changes", "detail": "nothing to update"},
+        )
+
+    try:
+        auth_repo.update_credentials(
+            db,
+            user,
+            new_username=None if same_username else new_username,
+            new_password=new_password,
+        )
+    except auth_repo.UsernameTaken:
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "username_taken", "detail": "username already in use"},
+        )
+    db.commit()
+    db.refresh(user)
+    _set_cookies(response, request, user)
+    return AuthAck(username=user.username)

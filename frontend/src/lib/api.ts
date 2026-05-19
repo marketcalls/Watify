@@ -94,6 +94,12 @@ export type MeResponse = {
   created_at: string;
 };
 
+export type ProfileUpdate = {
+  current_password: string;
+  new_username?: string;
+  new_password?: string;
+};
+
 export const auth = {
   login: (username: string, password: string) =>
     api.post<AuthAck>("/api/auth/login", { username, password }),
@@ -101,6 +107,7 @@ export const auth = {
     api.post<AuthAck>("/api/auth/register", { username, password }),
   logout: () => api.post<{ ok: true }>("/api/auth/logout"),
   me: () => api.get<MeResponse>("/api/auth/me"),
+  updateProfile: (body: ProfileUpdate) => api.patch<AuthAck>("/api/auth/profile", body),
 };
 
 // TKT-0016: `paired` reserved for post-handshake pre-sync state; the

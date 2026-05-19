@@ -28,6 +28,7 @@ from app.auth_repo import (  # noqa: E402
     get_user,
     rotate_refresh_secret,
     touch_last_login,
+    update_credentials,
     verify_credentials,
 )
 from app.db import engine, init_db  # noqa: E402
@@ -107,6 +108,40 @@ def main() -> int:
         db.refresh(user)
         assert user.last_login_at is not None
         print("touch_last_login set timestamp")
+
+        # --- update_credentials: username only ---
+        old_hash = user.password_hash
+        old_secret = user.refresh_secret
+        update_credentials(db, user, new_username="admin2", new_password=None)
+        db.commit()
+        db.refresh(user)
+        assert user.username == "admin2"
+        assert user.password_hash == old_hash, "password_hash should not change"
+        assert user.refresh_secret != old_secret, "refresh_secret should rotate"
+        print("update_credentials(username only) ok")
+
+        # --- update_credentials: password only ---
+        old_hash = user.password_hash
+        old_secret = user.refresh_secret
+        update_credentials(db, user, new_username=None, new_password="new fresh passphrase!")
+        db.commit()
+        db.refresh(user)
+        assert user.username == "admin2", "username should not change"
+        assert user.password_hash != old_hash, "password_hash should rotate"
+        assert user.refresh_secret != old_secret, "refresh_secret should rotate"
+        assert verify_credentials(db, "admin2", "new fresh passphrase!") is not None
+        assert verify_credentials(db, "admin2", "correct horse battery staple") is None
+        print("update_credentials(password only) ok")
+
+        # --- update_credentials: both at once ---
+        update_credentials(
+            db, user, new_username="admin3", new_password="another fresh passphrase!"
+        )
+        db.commit()
+        db.refresh(user)
+        assert user.username == "admin3"
+        assert verify_credentials(db, "admin3", "another fresh passphrase!") is not None
+        print("update_credentials(both) ok")
 
         # --- cleanup so next run is reproducible ---
         db.delete(user)

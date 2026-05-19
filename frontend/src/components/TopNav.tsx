@@ -66,7 +66,13 @@ export default function TopNav() {
             </ul>
             <div className="ml-auto flex items-center gap-3 text-sm">
               <ThemeToggle />
-              <span className="text-zinc-600 dark:text-zinc-400">{user.username}</span>
+              <Link
+                href="/profile"
+                className="text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline-offset-4 hover:underline"
+                title="Profile settings"
+              >
+                {user.username}
+              </Link>
               <button
                 type="button"
                 onClick={onLogout}
