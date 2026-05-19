@@ -45,16 +45,9 @@ export default function HeroPage() {
         </h1>
 
         <p className="mt-6 max-w-2xl mx-auto text-base sm:text-lg text-zinc-600 dark:text-zinc-400">
-          A single-user notification service you run on your own host. Pair once, group contacts
-          into watchlists capped at 20, and send now or on a schedule with a random per-recipient
-          delay.
+          A notification service you run on your own host. Pair once with WhatsApp, organize
+          contacts into watchlists, and send messages now or on a schedule.
         </p>
-
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-8 text-sm">
-          <Stat value="20" label="contacts per group" />
-          <Stat value="3-30s" label="random per-recipient delay" />
-          <Stat value="1" label="user, your host, your data" />
-        </div>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <HeroCTAs />
@@ -62,7 +55,7 @@ export default function HeroPage() {
             href="https://github.com/marketcalls/Watify"
             target="_blank"
             rel="noreferrer"
-            className="rounded border border-zinc-300 dark:border-zinc-700 px-5 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+            className="rounded-md border border-zinc-300 dark:border-zinc-700 px-5 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900"
           >
             GitHub
           </a>
@@ -71,7 +64,7 @@ export default function HeroPage() {
 
       <section>
         <p className="text-center text-xs uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-          Integrates with
+          Built with
         </p>
         <div className="mt-3 flex flex-wrap justify-center gap-2 text-sm">
           <Chip>WhatsApp</Chip>
@@ -85,15 +78,15 @@ export default function HeroPage() {
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <FeatureCard
           title="Pair with QR or pair-code"
-          body="Scan the QR from your phone or use a pair-code -- one device, one host, file-backed session that survives restarts."
+          body="Scan the QR from your phone or use a pair-code. One device, one host, file-backed session that survives restarts."
         />
         <FeatureCard
-          title="Friend groups, capped at 20"
-          body="Bulk-add contacts in groups of up to 20. Every send fires with a configurable random delay of 3 to 30 seconds between recipients to keep behaviour conversational."
+          title="Organize contacts into watchlists"
+          body="Add contacts one at a time or bulk-paste in CSV form. Deduplication on phone number is automatic."
         />
         <FeatureCard
           title="Send now or schedule"
-          body="Compose once, dispatch immediately or schedule for later. One message at a time, full attempt history, per-recipient retry detail."
+          body="Compose once, dispatch immediately or schedule for later. Full attempt history, per-recipient retry detail."
         />
       </section>
 

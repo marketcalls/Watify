@@ -64,10 +64,13 @@ function ConnectInner() {
   }, [waState?.state]);
 
   async function handleDisconnect() {
+    // TKT-0050: keep AUTO_FLAG set so the disconnected->auto-pair
+    // loop does not fire immediately after an explicit disconnect.
+    // The operator can still re-pair manually via "Start pairing".
+    autoStarted.current = true;
     if (typeof window !== "undefined") {
-      sessionStorage.removeItem(AUTO_FLAG);
+      sessionStorage.setItem(AUTO_FLAG, "1");
     }
-    autoStarted.current = false;
     await disconnect();
   }
 
@@ -397,7 +400,7 @@ function ReadyPanel({
     const ts = new Date().toISOString().replace("T", " ").slice(0, 19);
     try {
       await wa.testSelf(`Watify test message at ${ts} UTC`);
-      const msg = "Test message queued. Check WhatsApp on your phone within a few seconds.";
+      const msg = "Test message sent. Open WhatsApp on your phone to confirm receipt.";
       setTestResult({ ok: true, text: msg });
       toast.success("Test message sent to your own number");
     } catch (e) {
